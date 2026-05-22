@@ -79,9 +79,9 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 
 ## Phase 8 — Module: User Participations & Achievements
 
-- [ ] **8.1** `src/modules/participations/participations.service.ts` — `listByUser(userId)` return semua participations + quest detail.
-- [ ] **8.2** `getDetailForUser(userId, questUuid)` — participation + quest + flag `can_claim` (`status='success' && !reward_claimed`).
-- [ ] **8.3** Controller + routes (user-only): `GET /me/participations`, `GET /me/participations/:questUuid`.
+- [x] **8.1** `src/modules/participations/participations.service.ts` — `listByUser(userId)` return semua participations + quest detail.
+- [x] **8.2** `getDetailForUser(userId, questUuid)` — participation + quest + flag `can_claim` (`status='success' && !reward_claimed`).
+- [x] **8.3** Controller + routes (user-only): `GET /me/participations`, `GET /me/participations/:questUuid`.
 
 ## Phase 9 — Module: Agent API Key (user-managed)
 
