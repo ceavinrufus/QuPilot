@@ -10,8 +10,6 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 chars'),
   JWT_EXPIRES_IN: z.string().default('7d'),
 
-  AI_AGENT_API_KEY: z.string().min(1),
-
   SOLANA_RPC_URL: z.url(),
   TREASURY_SECRET_KEY: z.string().min(1, 'TREASURY_SECRET_KEY (base58) is required'),
 });

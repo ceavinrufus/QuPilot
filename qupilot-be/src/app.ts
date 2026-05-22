@@ -8,6 +8,7 @@ import { providersRouter } from './modules/providers/providers.routes';
 import { providerQuestsRouter, publicQuestsRouter } from './modules/quests/quests.routes';
 import { participationsRouter } from './modules/participations/participations.routes';
 import { apiKeysRouter } from './modules/api-keys/api-keys.routes';
+import { agentRouter } from './modules/agent/agent.routes';
 
 export const createApp = (): Express => {
   const app = express();
@@ -27,6 +28,7 @@ export const createApp = (): Express => {
   app.use(publicQuestsRouter);
   app.use(participationsRouter);
   app.use(apiKeysRouter);
+  app.use(agentRouter);
 
   app.use(errorHandler);
 

@@ -60,3 +60,19 @@ export const transferSpl = async (
   const tx = new Transaction().add(createTransferInstruction(fromAta.address, toAta.address, payer.publicKey, baseUnits));
   return sendAndConfirmTransaction(conn, tx, [payer], { commitment: 'confirmed' });
 };
+
+export const verifyTxBasic = async (txHash: string, walletAddress: string): Promise<boolean> => {
+  const conn = getConnection();
+  const parsed = await conn.getParsedTransaction(txHash, {
+    commitment: 'confirmed',
+    maxSupportedTransactionVersion: 0,
+  });
+
+  if (!parsed) return false;
+  if (parsed.meta?.err) return false;
+
+  const signer = parsed.transaction.message.accountKeys.find(
+    (k) => k.pubkey.toBase58() === walletAddress && k.signer === true,
+  );
+  return Boolean(signer);
+};

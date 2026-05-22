@@ -106,11 +106,11 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
 
 ## Phase 11 — Module: AI Agent (join + complete)
 
-- [ ] **11.1** **Rewrite** `src/middlewares/auth-agent.ts`: ambil `x-api-key`, validasi format `qpk_*`, lookup `agent_api_keys` by `key_prefix` & `revoked_at IS NULL`, constant-time compare hash via `verifyKey` (lib/api-key), set `req.auth = { role: 'agent', user_id, key_id }`, update `last_used_at` async (fire-and-forget). Hapus `AI_AGENT_API_KEY` dari `env.ts` + `.env.example`.
-- [ ] **11.2** `src/modules/agent/agent.schema.ts` — `joinBody { quest_uuid }` (tanpa `user_uuid` — di-resolve dari key), `completeBody { tx_hash }`.
-- [ ] **11.3** `agent.service.ts` — `join(userId, questUuid)`: resolve quest by uuid (cek belum expired), insert participation status `inprogress` (partial unique handle race → 409 kalau sudah ada).
-- [ ] **11.4** `agent.service.ts` — `complete(userId, participationUuid, txHash)`: load participation, **assert `participation.user_id === userId`** (else 403), panggil `verifyTxBasic(txHash, userWallet)` (RPC `getTransaction` + confirmed + signer match wallet). Set status success/failed + `completed_at` + `tx_hash`.
-- [ ] **11.5** Controller + routes (agent-only via `authAgent`): `POST /agent/participations` (join), `POST /agent/participations/:uuid/complete`.
+- [x] **11.1** **Rewrite** `src/middlewares/auth-agent.ts`: ambil `x-api-key`, validasi format `qpk_*`, lookup `agent_api_keys` by `key_prefix` & `revoked_at IS NULL`, constant-time compare hash via `verifyKey` (lib/api-key), set `req.auth = { role: 'agent', user_id, key_id }`, update `last_used_at` async (fire-and-forget). Hapus `AI_AGENT_API_KEY` dari `env.ts` + `.env.example`.
+- [x] **11.2** `src/modules/agent/agent.schema.ts` — `joinBody { quest_uuid }` (tanpa `user_uuid` — di-resolve dari key), `completeBody { tx_hash }`.
+- [x] **11.3** `agent.service.ts` — `join(userId, questUuid)`: resolve quest by uuid (cek belum expired), insert participation status `inprogress` (partial unique handle race → 409 kalau sudah ada).
+- [x] **11.4** `agent.service.ts` — `complete(userId, participationUuid, txHash)`: load participation, **assert `participation.user_id === userId`** (else 403), panggil `verifyTxBasic(txHash, userWallet)` (RPC `getTransaction` + confirmed + signer match wallet). Set status success/failed + `completed_at` + `tx_hash`.
+- [x] **11.5** Controller + routes (agent-only via `authAgent`): `POST /agent/participations` (join), `POST /agent/participations/:uuid/complete`.
 
 ## Phase 12 — Module: Leaderboard
 
