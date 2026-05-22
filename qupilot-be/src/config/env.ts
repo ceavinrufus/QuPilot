@@ -4,7 +4,7 @@ import { z } from 'zod';
 const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
 
-  SUPABASE_URL: z.string().url(),
+  SUPABASE_URL: z.url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 chars'),
@@ -12,7 +12,7 @@ const envSchema = z.object({
 
   AI_AGENT_API_KEY: z.string().min(1),
 
-  SOLANA_RPC_URL: z.string().url(),
+  SOLANA_RPC_URL: z.url(),
   TREASURY_SECRET_KEY: z.string().min(1, 'TREASURY_SECRET_KEY (base58) is required'),
 });
 

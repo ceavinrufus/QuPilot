@@ -54,9 +54,9 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 
 ## Phase 4 — Module: Auth User (Wallet)
 
-- [ ] **4.1** `src/modules/auth-user/auth-user.schema.ts` — zod `walletLoginBody { wallet_address, signature, message }`.
-- [ ] **4.2** `src/modules/auth-user/auth-user.service.ts` — verify signature → upsert by `wallet_address` → sign user JWT.
-- [ ] **4.3** `src/modules/auth-user/auth-user.controller.ts` + routes — `POST /auth/user/login`.
+- [x] **4.1** `src/modules/auth-user/auth-user.schema.ts` — zod `walletLoginBody { wallet_address, signature, message }`.
+- [x] **4.2** `src/modules/auth-user/auth-user.service.ts` — verify signature → upsert by `wallet_address` → sign user JWT.
+- [x] **4.3** `src/modules/auth-user/auth-user.controller.ts` + routes — `POST /auth/user/login`.
 
 ## Phase 5 — Module: Providers (public listing)
 

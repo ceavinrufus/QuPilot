@@ -9,7 +9,7 @@ export const registerBodySchema = z.object({
     .regex(/^[a-zA-Z0-9_.-]+$/, 'username may only contain letters, digits, _ . -'),
   password: z.string().min(8, 'password must be at least 8 chars').max(128),
   display_name: z.string().trim().min(1).max(120),
-  logo_url: z.string().url().max(2048).optional(),
+  logo_url: z.url().max(2048).optional(),
 });
 
 export type RegisterBody = z.infer<typeof registerBodySchema>;
