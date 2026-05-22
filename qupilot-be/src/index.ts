@@ -1,19 +1,8 @@
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
+import { env } from './config/env';
+import { createApp } from './app';
 
-const app = express();
+const app = createApp();
 
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
-
-app.get('/health', (_req, res) => {
-  res.json({ ok: true });
-});
-
-const port = Number(process.env.PORT ?? 3000);
-app.listen(port, () => {
-  console.log(`QuPilot BE listening on :${port}`);
+app.listen(env.PORT, () => {
+  console.log(`QuPilot BE listening on :${env.PORT}`);
 });
