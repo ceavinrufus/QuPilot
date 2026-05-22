@@ -71,8 +71,8 @@ jobs:
             docker run -d \
               --name "$CONTAINER" \
               --restart unless-stopped \
-              -p 8000:3000 \
-              -e PORT=3000 \
+              -p 8000:8000 \
+              -e PORT=8000 \
               -e SUPABASE_URL="$SUPABASE_URL" \
               -e SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
               -e JWT_SECRET="$JWT_SECRET" \
