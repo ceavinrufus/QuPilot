@@ -7,6 +7,7 @@ import { authUserRouter } from './modules/auth-user/auth-user.routes';
 import { providersRouter } from './modules/providers/providers.routes';
 import { providerQuestsRouter, publicQuestsRouter } from './modules/quests/quests.routes';
 import { participationsRouter } from './modules/participations/participations.routes';
+import { apiKeysRouter } from './modules/api-keys/api-keys.routes';
 
 export const createApp = (): Express => {
   const app = express();
@@ -25,6 +26,7 @@ export const createApp = (): Express => {
   app.use('/provider/quests', providerQuestsRouter);
   app.use(publicQuestsRouter);
   app.use(participationsRouter);
+  app.use(apiKeysRouter);
 
   app.use(errorHandler);
 

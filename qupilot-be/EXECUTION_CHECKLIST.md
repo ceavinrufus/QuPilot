@@ -87,13 +87,13 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 
 User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Agent mereka. Satu user maksimal satu key aktif.
 
-- [ ] **9.1** `src/lib/api-key.ts` — `generatePlaintextKey()` (return string `qpk_<32-random-base58>`), `hashKey(plaintext)` (SHA-256 hex), `extractPrefix(plaintext)` (slice 8 char pertama), `verifyKey(plaintext, hash)` (constant-time compare via `crypto.timingSafeEqual` di Buffer hex).
-- [ ] **9.2** `src/modules/api-keys/api-keys.schema.ts` — zod `generateBody { label?: string }`.
-- [ ] **9.3** `src/modules/api-keys/api-keys.service.ts`:
+- [x] **9.1** `src/lib/api-key.ts` — `generatePlaintextKey()` (return string `qpk_<32-random-base58>`), `hashKey(plaintext)` (SHA-256 hex), `extractPrefix(plaintext)` (slice 8 char pertama), `verifyKey(plaintext, hash)` (constant-time compare via `crypto.timingSafeEqual` di Buffer hex).
+- [x] **9.2** `src/modules/api-keys/api-keys.schema.ts` — zod `generateBody { label?: string }`.
+- [x] **9.3** `src/modules/api-keys/api-keys.service.ts`:
   - `generateForUser(userId, label?)` — dalam satu transaksi (atau sequential update→insert): `UPDATE agent_api_keys SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL`, lalu generate plaintext baru → hash & prefix → insert row baru → return `{ plaintext, uuid, key_prefix, label, created_at }`.
   - `getActiveForUser(userId)` — return metadata key aktif (tanpa plaintext, tanpa hash) atau `null`.
   - `revokeForUser(userId)` — set `revoked_at=now()` di key aktif user (no-op kalau sudah tidak ada).
-- [ ] **9.4** Controller + routes (user-only via `authUser`):
+- [x] **9.4** Controller + routes (user-only via `authUser`):
   - `POST /me/api-key` — generate (response berisi **plaintext sekali**).
   - `GET /me/api-key` — status key aktif.
   - `DELETE /me/api-key` — revoke.
