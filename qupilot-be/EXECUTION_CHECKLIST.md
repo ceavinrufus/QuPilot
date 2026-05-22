@@ -34,7 +34,7 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 - [x] **1.4** `supabase/migrations/0004_quest_participations.sql` — table participations, FK user/quest, **partial unique index** `(user_id, quest_id) WHERE status='inprogress'` untuk enforce "satu inprogress per kombinasi".
 - [x] **1.5** `supabase/migrations/0005_agent_api_keys.sql` — table `agent_api_keys` (id, uuid, user_id FK, key_prefix, key_hash, label, created_at, last_used_at, revoked_at) + **partial unique index** `(user_id) WHERE revoked_at IS NULL` (enforce satu key aktif per user) + index `(key_prefix)` untuk lookup.
 - [x] **1.6** `supabase/migrations/0006_enable_rls.sql` — `ENABLE ROW LEVEL SECURITY` di semua 5 table **tanpa policy**, plus `REVOKE ALL ... FROM anon, authenticated` + `ALTER DEFAULT PRIVILEGES` untuk table baru. Efek: hanya `service_role` (yang dipakai BE) yang punya akses; siapa pun yang coba lewat Supabase PostgREST publik / anon key dapat empty response.
-- [ ] **1.7** Apply semua migration di Supabase SQL editor; verifikasi ke-5 table ada **dan RLS aktif** (badge "RLS enabled" di Dashboard). _(manual — user execute di Supabase Dashboard)_
+- [x] **1.7** Apply semua migration di Supabase SQL editor; verifikasi ke-5 table ada **dan RLS aktif** (badge "RLS enabled" di Dashboard). _(manual — user execute di Supabase Dashboard)_
 
 ## Phase 2 — Auth Libraries
 
@@ -47,10 +47,10 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 
 ## Phase 3 — Module: Auth User Provider
 
-- [ ] **3.1** `src/modules/auth-provider/auth-provider.schema.ts` — zod `registerBody`, `loginBody`.
-- [ ] **3.2** `src/modules/auth-provider/auth-provider.service.ts` — `register()` (hash + insert + handle 23505→409), `login()` (lookup + verify + sign JWT).
-- [ ] **3.3** `src/modules/auth-provider/auth-provider.controller.ts` — `POST /register`, `POST /login`.
-- [ ] **3.4** `src/modules/auth-provider/auth-provider.routes.ts` — router, mount di `app.ts` di `/auth/provider`.
+- [x] **3.1** `src/modules/auth-provider/auth-provider.schema.ts` — zod `registerBody`, `loginBody`.
+- [x] **3.2** `src/modules/auth-provider/auth-provider.service.ts` — `register()` (hash + insert + handle 23505→409), `login()` (lookup + verify + sign JWT).
+- [x] **3.3** `src/modules/auth-provider/auth-provider.controller.ts` — `POST /register`, `POST /login`.
+- [x] **3.4** `src/modules/auth-provider/auth-provider.routes.ts` — router, mount di `app.ts` di `/auth/provider`.
 
 ## Phase 4 — Module: Auth User (Wallet)
 

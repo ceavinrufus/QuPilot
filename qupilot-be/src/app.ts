@@ -2,6 +2,7 @@ import express, { type Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { errorHandler } from './middlewares/error-handler';
+import { authProviderRouter } from './modules/auth-provider/auth-provider.routes';
 
 export const createApp = (): Express => {
   const app = express();
@@ -14,7 +15,7 @@ export const createApp = (): Express => {
     res.json({ ok: true });
   });
 
-  // TODO: mount module routers here as they get built (Phase 3+).
+  app.use('/auth/provider', authProviderRouter);
 
   app.use(errorHandler);
 
