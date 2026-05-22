@@ -27,11 +27,11 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 
 ## Phase 1 — Database Schema (SQL migrations)
 
-- [ ] **1.1** `supabase/migrations/0001_user_providers.sql` — table sesuai spec, unique index `username` & `uuid`, default `gen_random_uuid()` + enable extension `pgcrypto` jika belum.
-- [ ] **1.2** `supabase/migrations/0002_users.sql` — table users, unique `wallet_address` & `uuid`.
-- [ ] **1.3** `supabase/migrations/0003_quests.sql` — table quests, FK ke `user_providers(id)`, index `(provider_id)`, `(expires_at)`, `(protocol)`, `(quest_type)`.
-- [ ] **1.4** `supabase/migrations/0004_quest_participations.sql` — table participations, FK user/quest, **partial unique index** `(user_id, quest_id) WHERE status='inprogress'` untuk enforce "satu inprogress per kombinasi".
-- [ ] **1.5** Apply semua migration di Supabase SQL editor; verifikasi ke-4 table ada.
+- [x] **1.1** `supabase/migrations/0001_user_providers.sql` — table sesuai spec, unique index `username` & `uuid`, default `gen_random_uuid()` + enable extension `pgcrypto` jika belum.
+- [x] **1.2** `supabase/migrations/0002_users.sql` — table users, unique `wallet_address` & `uuid`.
+- [x] **1.3** `supabase/migrations/0003_quests.sql` — table quests, FK ke `user_providers(id)`, index `(provider_id)`, `(expires_at)`, `(protocol)`, `(quest_type)`.
+- [x] **1.4** `supabase/migrations/0004_quest_participations.sql` — table participations, FK user/quest, **partial unique index** `(user_id, quest_id) WHERE status='inprogress'` untuk enforce "satu inprogress per kombinasi".
+- [ ] **1.5** Apply semua migration di Supabase SQL editor; verifikasi ke-4 table ada. _(manual — user execute di Supabase Dashboard)_
 
 ## Phase 2 — Auth Libraries
 
