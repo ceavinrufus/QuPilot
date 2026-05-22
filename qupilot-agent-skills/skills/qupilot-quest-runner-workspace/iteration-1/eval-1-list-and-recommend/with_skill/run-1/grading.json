@@ -1,0 +1,89 @@
+{
+  "expectations": [
+    {
+      "text": "Calls GET /quests with status=open filter",
+      "passed": true,
+      "evidence": "Phase 1 command: `curl -sS -H \"Authorization: Bearer $QUPILOT_API_KEY\" \"$QUPILOT_API_URL/quests?status=open&limit=20\"` (line 17-19)"
+    },
+    {
+      "text": "Uses Authorization: Bearer header with QUPILOT_API_KEY",
+      "passed": true,
+      "evidence": "Bearer header used in the curl command: `-H \"Authorization: Bearer $QUPILOT_API_KEY\"`"
+    },
+    {
+      "text": "Presents quests with title, venue, reward, and expires_at",
+      "passed": true,
+      "evidence": "Reasoning table at lines 129-135 presents per-quest title, venue (implicit via id/venue tag in the JSON), reward (QPT amounts), and expiry windows; final summary table also lists title and reward with fits-in-20-min column derived from expires_at."
+    },
+    {
+      "text": "Recommends with cost-aware reasoning, not reward-only",
+      "passed": true,
+      "evidence": "Lines 138-142 explicitly discuss slippage ($0.25), gas (cents), IL risk, funding, and reward-to-cost ratios. The recommendation rejects the higher-reward LP and perp quests on cost/risk grounds."
+    },
+    {
+      "text": "Does NOT silently auto-execute (no /claim call)",
+      "passed": true,
+      "evidence": "Line 148: \"I'm intentionally not claiming anything yet\". Final message at line 166 asks \"Want me to run it?\" — no /claim POST or byreal command executed."
+    },
+    {
+      "text": "Acknowledges the 20-minute time constraint when picking",
+      "passed": true,
+      "evidence": "Table column \"Fits 20 min?\" filters quests by the window (line 129-135); HOLDETH and VOLPERPS rejected for not fitting; SWAP picked as ~2 min."
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "errors_encountered": 0,
+    "output_chars": 7800,
+    "transcript_chars": 7800
+  },
+  "timing": {
+    "executor_duration_seconds": 88.5,
+    "total_duration_seconds": 88.5
+  },
+  "claims": [
+    {
+      "claim": "action.kind swap is in references/quest-mapping.md",
+      "type": "process",
+      "verified": true,
+      "evidence": "Skill ships with quest-mapping.md and the executor cites §1 of it; consistent with the skill design."
+    },
+    {
+      "claim": "Worst-case slippage on $50 swap at 50bps ≈ $0.25",
+      "type": "factual",
+      "verified": true,
+      "evidence": "$50 * 50bps = $0.25, arithmetic checks out."
+    },
+    {
+      "claim": "Only the SOL→USDC swap fits the constraints cleanly",
+      "type": "quality",
+      "verified": true,
+      "evidence": "Other quests credibly disqualified: LP has IL exposure, perp opens leveraged position, hold-ETH requires prior position, volume-quest doesn't fit window."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Presents quests with title, venue, reward, and expires_at",
+        "reason": "Assertion would pass even if the executor invented a venue field; consider requiring the venue value from the API response (e.g. byreal-clmm, byreal-perps) to appear verbatim per quest."
+      },
+      {
+        "reason": "No assertion checks that the agent stops short of claiming and asks for confirmation. The 'no /claim call' assertion catches silent execution but a passing agent could also just refuse to recommend; consider adding 'asks user before claiming'."
+      }
+    ],
+    "overall": "Assertions are reasonable and discriminating. The skill version cleanly passes all six; baseline comparison will reveal the value-add."
+  }
+}

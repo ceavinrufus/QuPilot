@@ -97,7 +97,8 @@ dist
 
 # Sveltekit cache directory
 .svelte-kit/
-
+.agents
+skills-lock.json
 # vitepress build output
 **/.vitepress/dist
 
