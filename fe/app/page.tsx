@@ -1,85 +1,693 @@
-import { Button } from "@heroui/react";
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { Button, Card, ProgressBar } from "@heroui/react";
+import { FaRocket, FaCoins, FaDiscord, FaXTwitter, FaComments, FaBolt } from "react-icons/fa6";
+import { FiUsers, FiTrendingUp, FiX, FiCpu } from "react-icons/fi";
+import { SiSui } from "react-icons/si";
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
+
+const PROVIDERS = [
+  {
+    id: "sui",
+    name: "Sui Network",
+    description: "High-speed L1 blockchain quests.",
+    accentColor: "#3898FF",
+    accentBg: "rgba(56,152,255,0.1)",
+    icon: <SiSui className="text-3xl" style={{ color: "#3898FF" }} />,
+    stats: { activeQuests: 12, totalPool: "5,000 SUI" },
+    quests: [
+      {
+        id: "q-sui-1",
+        title: "Liquidity Provisioning Alpha",
+        description:
+          "Provide liquidity to the main pool and hold for 7 days to earn your reward.",
+        agents: "1,204 Agents",
+        reward: "+50 SUI",
+        progress: 65,
+      },
+      {
+        id: "q-sui-2",
+        title: "First Swap Journey",
+        description:
+          "Complete your first decentralized swap on the Sui ecosystem.",
+        agents: "850 Agents",
+        reward: "+20 SUI",
+        progress: 30,
+      },
+    ],
+  },
+  {
+    id: "bybit",
+    name: "ByBit",
+    description: "Exchange trading challenges.",
+    accentColor: "#F7A600",
+    accentBg: "rgba(247,166,0,0.1)",
+    icon: <FaBolt className="text-3xl" style={{ color: "#F7A600" }} />,
+    stats: { activeQuests: 8, totalPool: "$25,000" },
+    quests: [
+      {
+        id: "q-bybit-1",
+        title: "Derivatives Rookie",
+        description:
+          "Open your first derivatives position with a minimum volume of $100.",
+        agents: "5,432 Agents",
+        reward: "$10 USDT",
+        progress: 85,
+      },
+    ],
+  },
+];
+
+// ─── Sub-components ────────────────────────────────────────────────────────────
+
+function StatBadge({ value, label, icon }: { value: string; label: string; icon: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 px-8">
+      <div className="text-2xl text-[#A63420] opacity-80">
+        {icon}
+      </div>
+      <span
+        className="text-3xl font-extrabold tracking-tight"
+        style={{ fontFamily: "var(--font-nunito)", color: "#1F1B18" }}
+      >
+        {value}
+      </span>
+      <span
+        className="text-[11px] font-bold uppercase tracking-widest"
+        style={{ color: "#6B6560" }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function QuestCard({
+  quest,
+  accentColor,
+  accentBg,
+}: {
+  quest: (typeof PROVIDERS)[0]["quests"][0];
+  accentColor: string;
+  accentBg: string;
+}) {
+  return (
+    <Card
+      className="flex flex-col gap-3 p-5 rounded-xl border flex-1"
+      style={{
+        background: "#FFF8F6",
+        borderColor: "rgba(223,191,185,0.3)",
+        boxShadow: "0px 1px 2px 0px rgba(0,0,0,0.05)",
+      }}
+    >
+      {/* Top row: agents + reward */}
+      <div className="flex items-center justify-between">
+        <span
+          className="text-xs px-2 py-1 rounded-md"
+          style={{ background: "#FFE9E5", color: "#6B6560" }}
+        >
+          {quest.agents}
+        </span>
+        <span
+          className="text-xs font-bold px-2 py-1 rounded-full"
+          style={{ background: accentBg, color: accentColor }}
+        >
+          {quest.reward}
+        </span>
+      </div>
+
+      {/* Title */}
+      <h3
+        className="font-bold text-[17px] leading-snug"
+        style={{ fontFamily: "var(--font-nunito)", color: "#1F1B18" }}
+      >
+        {quest.title}
+      </h3>
+
+      {/* Description */}
+      <p className="text-sm leading-relaxed" style={{ color: "#6B6560" }}>
+        {quest.description}
+      </p>
+
+      {/* Progress */}
+      <div className="flex flex-col gap-1 mt-auto">
+        <div className="flex justify-between text-xs" style={{ color: "#6B6560" }}>
+          <span>Progress</span>
+          <span>{quest.progress}% Full</span>
+        </div>
+        <ProgressBar aria-label="Quest Progress" value={quest.progress} className="w-full">
+          <ProgressBar.Track className="h-2 rounded-full bg-[#FFE9E5]">
+            <ProgressBar.Fill className="rounded-full transition-all" style={{ backgroundColor: accentColor }} />
+          </ProgressBar.Track>
+        </ProgressBar>
+      </div>
+    </Card>
+  );
+}
+
+function ProviderSection({
+  provider,
+}: {
+  provider: (typeof PROVIDERS)[0];
+}) {
+  return (
+    <Card
+      className="flex flex-col gap-8 p-8 rounded-[32px]"
+      style={{
+        background: "rgba(255,255,255,0.85)",
+        border: `4px solid ${provider.accentColor}33 transparent transparent`,
+        borderTop: `4px solid ${provider.accentColor}`,
+        borderLeft: "1px solid rgba(255,255,255,0.4)",
+        borderRight: "1px solid rgba(255,255,255,0.4)",
+        borderBottom: "1px solid rgba(255,255,255,0.4)",
+        boxShadow: "0px 8px 32px 0px rgba(166,52,32,0.05)",
+        backdropFilter: "blur(16px)",
+      }}
+    >
+      {/* Provider header row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          {/* Logo placeholder */}
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{
+              background: provider.accentBg,
+              boxShadow: "0px 1px 2px 0px rgba(0,0,0,0.05)",
+            }}
+          >
+            {provider.icon}
+          </div>
+
+          <div>
+            <h2
+              className="text-2xl font-bold"
+              style={{ fontFamily: "var(--font-nunito)", color: "#1F1B18" }}
+            >
+              {provider.name}
+            </h2>
+            <p className="text-sm" style={{ color: "#6B6560" }}>
+              {provider.description}
+            </p>
+          </div>
+        </div>
+
+        {/* Stats pill */}
+        <div
+          className="flex items-center gap-3 px-3 py-2 rounded-xl"
+          style={{ background: "#FFF0EE" }}
+        >
+          <div className="text-right">
+            <p className="text-[11px] uppercase tracking-widest" style={{ color: "#6B6560" }}>Active Quests</p>
+            <p className="text-base font-bold" style={{ color: "#1F1B18", fontFamily: "var(--font-nunito)" }}>
+              {provider.stats.activeQuests}
+            </p>
+          </div>
+          <div className="w-px h-8" style={{ background: "#DFBFB9" }} />
+          <div className="text-right">
+            <p className="text-[11px] uppercase tracking-widest" style={{ color: "#6B6560" }}>Total Pool</p>
+            <p
+              className="text-base font-bold"
+              style={{ color: "#F59E0B", fontFamily: "var(--font-nunito)" }}
+            >
+              {provider.stats.totalPool}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Quest cards */}
+      <div className="flex gap-4">
+        {provider.quests.map((quest) => (
+          <QuestCard
+            key={quest.id}
+            quest={quest}
+            accentColor={provider.accentColor}
+            accentBg={provider.accentBg}
+          />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Home() {
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const handleConnectWallet = () => {
+    setIsConnecting(true);
+    setTimeout(() => {
+      setIsConnecting(false);
+      setWalletAddress("0x7a83B...34d8");
+    }, 800);
+  };
+
+  const handleDisconnectWallet = () => setWalletAddress(null);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center px-6 py-12">
-      <main className="flex flex-1 w-full flex-col items-center justify-center gap-12">
-        {/* Hero Section */}
-        <div className="flex flex-col">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-light border border-primary/20">
-            <span className="text-label text-primary">Fun AF</span>
-          </div>
-
-          <h1 className="text-display text-primary">
-            QuPilot
-          </h1>
-
-          <p className="text-h2 text-text-secondary">
-            Space explorer vibes for real degens
-          </p>
-
-          <p className="text-body-lg text-text-muted">
-            Warm, bubbly, and bouncy. Your friendly companion for navigating the cosmos with style and confidence.
-          </p>
-        </div>
-
-        {/* CTA Buttons - Using HeroUI Components */}
-        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-          <Button
-            size="lg"
-            variant="primary"
-            className="px-8 py-4 rounded-lg bg-primary text-on-primary font-bold text-body-lg"
+    <div
+      className="min-h-screen flex flex-col overflow-x-hidden"
+      style={{ background: "#FFFBF5" }}
+    >
+      {/* ── Navbar ── */}
+      <header
+        className="sticky top-0 z-40"
+        style={{
+          background: "rgba(255,248,246,0.8)",
+          borderBottom: "1px solid rgba(245,221,217,0.5)",
+          backdropFilter: "blur(24px)",
+          boxShadow:
+            "0px 0px 3px 0px rgba(31,27,24,0.02), 0px 4px 20px -2px rgba(31,27,24,0.05)",
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-5 py-3 flex items-center justify-between">
+          {/* Logo */}
+          <Link
+            href="/"
+            className="flex items-center gap-1 group"
+            id="nav-logo"
           >
-            Get Started
-          </Button>
+            <FaRocket className="text-xl text-[#A63420] transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
+            <span
+              className="text-2xl font-extrabold tracking-tight"
+              style={{
+                fontFamily: "var(--font-nunito)",
+                color: "#A63420",
+              }}
+            >
+              Pilot
+            </span>
+          </Link>
 
-          <Button
-            size="lg"
-            variant="outline"
-            className="px-8 py-4 rounded-lg border-2 border-secondary text-secondary font-bold text-body-lg hover:bg-secondary-light"
+          {/* Nav links */}
+          <nav className="flex items-center gap-1">
+            {["Leaderboard", "My Profile", "Dashboard"].map((item) => (
+              <Link
+                key={item}
+                href={`/${item.toLowerCase().replace(" ", "-")}`}
+                className="px-3 py-2 rounded-xl text-xs font-bold tracking-widest uppercase transition-colors hover:bg-black/5"
+                style={{ color: "#6B6560" }}
+              >
+                {item}
+              </Link>
+            ))}
+          </nav>
+
+          {/* CTA buttons */}
+          <div className="flex items-center gap-3">
+            <Button
+              render={(props) => <Link href="/register-provider" {...(props as any)} />}
+              id="nav-register-provider"
+              className="px-5 py-2 rounded-full text-xs font-bold tracking-widest uppercase border transition-all hover:bg-black/5"
+              style={{
+                background: "#F8F4EF",
+                borderColor: "#DFBFB9",
+                color: "#1F1B18",
+                height: "auto",
+                minWidth: "auto",
+              }}
+            >
+              Register as Provider
+            </Button>
+
+            {walletAddress ? (
+              <div className="flex items-center gap-2">
+                <div
+                  className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold"
+                  style={{ background: "#FFE9E5", color: "#A63420" }}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full animate-pulse"
+                    style={{ background: "#10B981" }}
+                  />
+                  {walletAddress}
+                </div>
+                <Button
+                  isIconOnly
+                  variant="ghost"
+                  onPress={handleDisconnectWallet}
+                  className="w-6 h-6 min-w-auto p-0 rounded-full text-[#A39D97] hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors"
+                >
+                  <FiX size={14} />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onPress={handleConnectWallet}
+                isDisabled={isConnecting}
+                id="nav-connect-wallet"
+                className="flex items-center gap-1 px-5 py-2 rounded-full text-xs font-bold tracking-widest uppercase transition-all disabled:opacity-60"
+                style={{
+                  background: "#A63420",
+                  color: "#FFFFFF",
+                  boxShadow:
+                    "0px 6px 12px 0px rgba(166,52,32,0.3), 0px 4px 0px 0px rgba(137,30,12,1)",
+                  height: "auto",
+                  minWidth: "auto",
+                }}
+              >
+                {isConnecting ? "Connecting..." : "Connect Wallet"}
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* ── Hero Section ── */}
+      <section
+        className="relative overflow-hidden"
+        style={{ padding: "140px 20px 48px" }}
+      >
+        {/* Background blobs */}
+        <div
+          className="pointer-events-none absolute"
+          style={{
+            left: 33,
+            top: 49,
+            width: 600,
+            height: 600,
+            borderRadius: "9999px",
+            background: "rgba(255,180,165,0.4)",
+            filter: "blur(100px)",
+            opacity: 0.5,
+            zIndex: 0,
+          }}
+        />
+        <div
+          className="pointer-events-none absolute"
+          style={{
+            left: 596,
+            top: 492,
+            width: 700,
+            height: 700,
+            borderRadius: "9999px",
+            background: "rgba(206,189,255,0.3)",
+            filter: "blur(100px)",
+            opacity: 0.5,
+            zIndex: 0,
+          }}
+        />
+        <div
+          className="pointer-events-none absolute"
+          style={{
+            left: 64,
+            top: "calc(100% - 282px)",
+            width: 500,
+            height: 500,
+            borderRadius: "9999px",
+            background: "rgba(245,158,11,0.2)",
+            filter: "blur(100px)",
+            opacity: 0.5,
+            zIndex: 0,
+          }}
+        />
+
+        <div className="relative z-10 max-w-7xl mx-auto flex items-center justify-between gap-12">
+          {/* Left: text content */}
+          <div className="flex flex-col gap-5" style={{ maxWidth: 608 }}>
+            {/* Status pill */}
+            <div
+              className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full text-xs font-bold tracking-widest"
+              style={{
+                background: "#FFF0EE",
+                border: "1px solid rgba(166,52,32,0.2)",
+                color: "#6B6560",
+                boxShadow: "0px 1px 2px 0px rgba(0,0,0,0.05)",
+              }}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <FiCpu className="text-[#A63420]" />
+              System Online. Mission Control Active.
+            </div>
+
+            {/* Heading */}
+            <h1
+              className="text-[56px] font-extrabold leading-17.5 tracking-tight"
+              style={{ fontFamily: "var(--font-nunito)", color: "#1F1B18" }}
+            >
+              Automate your DeFi
+              <br />
+              Journey.
+              <br />
+              <span
+                style={{
+                  background:
+                    "linear-gradient(168deg, #A63420 0%, #F59E0B 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}
+              >
+                Earn like a Pro.
+              </span>
+            </h1>
+
+            {/* Sub-heading */}
+            <p
+              className="text-lg leading-relaxed"
+              style={{ color: "#6B6560", maxWidth: 576 }}
+            >
+              Join Mission Control, deploy smart agents to complete complex DeFi
+              tasks, and earn crypto rewards on autopilot in a vibrant Web3
+              ecosystem.
+            </p>
+
+            {/* CTAs */}
+            <div className="flex items-center gap-3 pt-3">
+              <Button
+                render={(props) => <Link href="/explore" {...(props as any)} />}
+                id="hero-launch-agents"
+                className="flex items-center gap-2 px-8 py-3 rounded-full text-[17px] font-bold transition-all hover:opacity-90"
+                style={{
+                  background: "#A63420",
+                  color: "#FFFFFF",
+                  boxShadow:
+                    "0px 6px 12px 0px rgba(166,52,32,0.3), 0px 4px 0px 0px rgba(137,30,12,1)",
+                  height: "auto",
+                  minWidth: "auto",
+                }}
+              >
+                Launch Agents
+                <FaRocket className="text-white" />
+              </Button>
+
+              <Button
+                render={(props) => <Link href="/explore" {...(props as any)} />}
+                id="hero-view-quests"
+                className="flex items-center justify-center px-8 py-3 rounded-full text-[17px] font-bold border-2 transition-all hover:bg-black/5"
+                style={{
+                  background: "#FFF8F6",
+                  borderColor: "rgba(166,52,32,0.2)",
+                  color: "#A63420",
+                  height: "auto",
+                  minWidth: "auto",
+                }}
+              >
+                View Quests
+              </Button>
+            </div>
+          </div>
+
+          {/* Right: hero image */}
+          <div
+            className="relative shrink-0"
+            style={{ width: 600, height: 600 }}
           >
-            Learn More
-          </Button>
-        </div>
-
-        {/* Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mt-8">
-          <div className="p-6 rounded-xl bg-surface border border-border hover:border-primary/30 hover:shadow-soft transition-all duration-200">
-            <div className="w-12 h-12 rounded-lg bg-primary-light flex items-center justify-center mb-4">
-              <span className="text-2xl">🚀</span>
+            {/* Gradient overlay behind image */}
+            <div
+              className="absolute inset-0 rounded-xl"
+              style={{
+                background:
+                  "linear-gradient(45deg, rgba(166,52,32,0.1) 0%, rgba(245,158,11,0.1) 100%)",
+              }}
+            />
+            <div
+              className="relative w-full h-full rounded-xl overflow-hidden"
+              style={{
+                border: "6px solid rgba(255,255,255,0.8)",
+                boxShadow:
+                  "0px 12px 16px 0px rgba(31,27,24,0.06), 0px 24px 48px -12px rgba(31,27,24,0.12)",
+              }}
+            >
+              <Image
+                src="/hero_mission_control.png"
+                alt="Mission Control - DeFi automation hub"
+                fill
+                className="object-cover"
+                priority
+              />
             </div>
-            <h3 className="text-h3 text-text-primary mb-2">Fast Launch</h3>
-            <p className="text-body-sm text-text-secondary">
-              Get up and running in seconds with our streamlined onboarding.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-xl bg-surface border border-border hover:border-secondary/30 hover:shadow-soft transition-all duration-200">
-            <div className="w-12 h-12 rounded-lg bg-secondary-light flex items-center justify-center mb-4">
-              <span className="text-2xl">✨</span>
-            </div>
-            <h3 className="text-h3 text-text-primary mb-2">Playful Design</h3>
-            <p className="text-body-sm text-text-secondary">
-              Experience a warm, bouncy interface that makes work feel like play.
-            </p>
-          </div>
-
-          <div className="p-6 rounded-xl bg-surface border border-border hover:border-accent/30 hover:shadow-soft transition-all duration-200">
-            <div className="w-12 h-12 rounded-lg bg-accent-light flex items-center justify-center mb-4">
-              <span className="text-2xl">🎯</span>
-            </div>
-            <h3 className="text-h3 text-text-primary mb-2">Built for Degens</h3>
-            <p className="text-body-sm text-text-secondary">
-              Powerful features designed for those who know what they want.
-            </p>
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="mt-12 text-body-sm text-text-muted">
-          <p>Ready to explore? Let&apos;s go. 🌟</p>
-        </footer>
+        {/* ── Trust / Stats Bar ── */}
+        <div className="relative z-10 max-w-7xl mx-auto mt-3xl">
+          <div
+            className="flex items-center justify-center gap-0 rounded-[24px] py-8"
+            style={{
+              background: "rgba(255,255,255,0.85)",
+              border: "1px solid rgba(255,255,255,0.4)",
+              backdropFilter: "blur(16px)",
+              boxShadow:
+                "0px 4px 6px 0px rgba(31,27,24,0.04), 0px 12px 32px -4px rgba(31,27,24,0.08)",
+            }}
+          >
+            <StatBadge value="12k+" label="Agents Deployed" icon={<FiUsers size={24} />} />
+            <div
+              className="w-px self-stretch"
+              style={{ background: "rgba(223,191,185,0.5)" }}
+            />
+            <StatBadge value="$4.2M" label="Rewards Distributed" icon={<FaCoins size={22} />} />
+            <div
+              className="w-px self-stretch"
+              style={{ background: "rgba(223,191,185,0.5)" }}
+            />
+            <StatBadge value="94%" label="Success Rate" icon={<FiTrendingUp size={24} />} />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Providers Section ── */}
+      <main
+        className="max-w-7xl mx-auto w-full flex flex-col gap-3xl"
+        style={{ padding: "48px 20px" }}
+      >
+        {/* Section heading */}
+        <div className="flex flex-col items-center gap-2">
+          <h2
+            className="text-[32px] font-extrabold tracking-tight"
+            style={{
+              fontFamily: "var(--font-nunito)",
+              color: "#1F1B18",
+            }}
+          >
+            Top Mission Providers
+          </h2>
+          <p
+            className="text-base text-center"
+            style={{ color: "#6B6560", maxWidth: 672 }}
+          >
+            Discover official quests from verified DeFi protocols and exchanges.
+          </p>
+        </div>
+
+        {/* Provider blocks */}
+        <div className="flex flex-col gap-3xl">
+          {PROVIDERS.map((provider) => (
+            <ProviderSection key={provider.id} provider={provider} />
+          ))}
+        </div>
       </main>
+
+      {/* ── Footer ── */}
+      <footer
+        className="mt-auto"
+        style={{
+          background: "#FFF0EE",
+          borderTop: "1px solid rgba(223,191,185,0.5)",
+        }}
+      >
+        <div
+          className="max-w-7xl mx-auto flex flex-col gap-8"
+          style={{ padding: "32px 20px" }}
+        >
+          {/* Top row */}
+          <div className="flex items-start justify-between gap-12">
+            {/* Brand */}
+            <div className="flex flex-col gap-3" style={{ maxWidth: 384 }}>
+              <Link href="/" className="flex items-center gap-1">
+                <FaRocket className="text-xl text-[#A63420]" />
+                <span
+                  className="text-2xl font-extrabold tracking-tight"
+                  style={{ fontFamily: "var(--font-nunito)", color: "#A63420" }}
+                >
+                  Pilot
+                </span>
+              </Link>
+              <p className="text-sm leading-relaxed" style={{ color: "#6B6560" }}>
+                The most powerful automation layer for Web3 quests. Deploy
+                agents, complete missions, and earn rewards effortlessly.
+              </p>
+            </div>
+
+            {/* Links */}
+            <div className="flex gap-16">
+              <div className="flex flex-col gap-3">
+                <h4
+                  className="text-base font-semibold"
+                  style={{ color: "#1F1B18", fontFamily: "var(--font-nunito)" }}
+                >
+                  Resources
+                </h4>
+                {["Documentation", "Governance", "Provider API"].map((l) => (
+                  <Link
+                    key={l}
+                    href="#"
+                    className="text-sm hover:text-[#A63420] transition-colors"
+                    style={{ color: "#6B6560" }}
+                  >
+                    {l}
+                  </Link>
+                ))}
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <h4
+                  className="text-base font-semibold"
+                  style={{ color: "#1F1B18", fontFamily: "var(--font-nunito)" }}
+                >
+                  Community
+                </h4>
+                {[
+                  { label: "Discord", icon: <FaDiscord size={16} /> },
+                  { label: "Twitter", icon: <FaXTwitter size={16} /> },
+                  { label: "Forum", icon: <FaComments size={16} /> },
+                ].map(({ label, icon }) => (
+                  <Link
+                    key={label}
+                    href="#"
+                    className="flex items-center gap-2 text-sm hover:text-[#A63420] transition-colors"
+                    style={{ color: "#6B6560" }}
+                  >
+                    {icon} {label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom row */}
+          <div
+            className="flex items-center justify-between pt-5"
+            style={{ borderTop: "1px solid rgba(223,191,185,0.3)" }}
+          >
+            <p className="text-sm" style={{ color: "#6B6560" }}>
+              © 2024 Pilot Web3 Quests. Explore the stars.
+            </p>
+            <div className="flex gap-5">
+              {["Terms of Service", "Privacy Policy"].map((l) => (
+                <Link
+                  key={l}
+                  href="#"
+                  className="text-sm hover:text-[#A63420] transition-colors"
+                  style={{ color: "#6B6560" }}
+                >
+                  {l}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
