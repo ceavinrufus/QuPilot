@@ -10,8 +10,8 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 
 > **Cara apply migrations manual:**
 > 1. Buka Supabase Dashboard → SQL Editor.
-> 2. Jalanin isi `supabase/migrations/0001_*.sql` sampai `0004_*.sql` berurutan.
-> 3. Cek di Table Editor: `user_providers`, `users`, `quests`, `quest_participations` muncul.
+> 2. Jalanin isi `supabase/migrations/0001_*.sql` sampai `0005_*.sql` berurutan.
+> 3. Cek di Table Editor: `user_providers`, `users`, `quests`, `quest_participations`, `agent_api_keys` muncul.
 
 ---
 
@@ -32,7 +32,7 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 - [x] **1.2** `supabase/migrations/0002_users.sql` — table users, unique `wallet_address` & `uuid`.
 - [x] **1.3** `supabase/migrations/0003_quests.sql` — table quests, FK ke `user_providers(id)`, index `(provider_id)`, `(expires_at)`, `(protocol)`, `(quest_type)`.
 - [x] **1.4** `supabase/migrations/0004_quest_participations.sql` — table participations, FK user/quest, **partial unique index** `(user_id, quest_id) WHERE status='inprogress'` untuk enforce "satu inprogress per kombinasi".
-- [ ] **1.5** `supabase/migrations/0005_agent_api_keys.sql` — table `agent_api_keys` (id, uuid, user_id FK, key_prefix, key_hash, label, created_at, last_used_at, revoked_at) + **partial unique index** `(user_id) WHERE revoked_at IS NULL` (enforce satu key aktif per user) + index `(key_prefix)` untuk lookup.
+- [x] **1.5** `supabase/migrations/0005_agent_api_keys.sql` — table `agent_api_keys` (id, uuid, user_id FK, key_prefix, key_hash, label, created_at, last_used_at, revoked_at) + **partial unique index** `(user_id) WHERE revoked_at IS NULL` (enforce satu key aktif per user) + index `(key_prefix)` untuk lookup.
 - [ ] **1.6** Apply semua migration di Supabase SQL editor; verifikasi ke-5 table ada. _(manual — user execute di Supabase Dashboard)_
 
 ## Phase 2 — Auth Libraries
