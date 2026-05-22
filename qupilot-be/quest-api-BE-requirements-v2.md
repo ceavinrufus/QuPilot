@@ -15,7 +15,7 @@ Platform web3 quest yang menghubungkan tiga jenis aktor: **User Provider** (pemb
 | DB Access | Supabase JS SDK dengan `service_role` key |
 | Auth — User Provider | JWT (username + password), role: `user_provider` |
 | Auth — User | JWT (wallet signature), role: `user` |
-| Auth — AI Agent | Static API key via header `x-api-key` |
+| Auth — AI Agent | API key via header `x-api-key` — di-generate oleh user (wallet) dari dashboard, satu key aktif per user, tersimpan sebagai SHA-256 hash + prefix |
 | Validation | Zod (request body & query params) |
 | Deploy | Railway / Fly.io / VPS |
 
@@ -60,6 +60,28 @@ Menyimpan akun user berdasarkan wallet address. Tidak ada password — autentika
 | uuid | uuid UNIQUE default uuidv4 | ID publik untuk UI |
 | wallet_address | text UNIQUE | Solana wallet address (public key) |
 | created_at | timestamptz | |
+
+---
+
+### Tabel: `agent_api_keys`
+
+Menyimpan API key yang di-generate oleh user untuk dipakai AI Agent. Satu user hanya boleh memiliki satu key aktif pada satu waktu — regenerate akan me-revoke key lama.
+
+| Column | Type | Keterangan |
+|---|---|---|
+| id | bigint PK auto increment | Internal FK |
+| uuid | uuid UNIQUE default uuidv4 | ID publik untuk UI |
+| user_id | bigint FK | → users.id (one user → many keys total, tapi hanya satu `revoked_at IS NULL`) |
+| key_prefix | text | 8 karakter pertama dari plaintext key — dipakai untuk lookup cepat. Index biasa. |
+| key_hash | text | SHA-256 hash hex dari plaintext key — dipakai untuk verifikasi (constant-time compare). |
+| label | text | Label opsional yang diberikan user saat generate (mis. "trading-bot"). |
+| created_at | timestamptz | |
+| last_used_at | timestamptz | Update setiap kali key dipakai untuk authenticate. |
+| revoked_at | timestamptz | NULL jika masih aktif. Diisi saat user regenerate atau revoke manual. |
+
+**Partial unique index:** `(user_id) WHERE revoked_at IS NULL` — enforce "satu key aktif per user" di level database.
+
+**Plaintext key:** Format `qpk_<random-32-chars>`. Plaintext hanya muncul satu kali di response saat generate — setelah itu tidak bisa dilihat ulang (best practice industri). 8 karakter pertama plaintext (`qpk_xxxx`) disimpan di `key_prefix` agar verify flow tidak perlu full table scan.
 
 ---
 
@@ -199,6 +221,19 @@ Semua endpoint memerlukan JWT dengan role `user`. User hanya bisa **melihat data
 - Trigger transaksi on-chain untuk mengirim reward ke wallet user
 - Setelah berhasil, update `reward_claimed = true` pada semua participation yang di-claim
 
+**Generate API Key untuk AI Agent**
+- Hanya bisa diakses setelah user login pakai wallet (JWT role `user`)
+- Saat dipanggil: revoke key lama (set `revoked_at = now()`), generate plaintext baru `qpk_<32-random-chars>`, hash SHA-256, simpan row baru di `agent_api_keys` dengan `key_prefix` (8 char pertama plaintext) dan `key_hash`
+- Response berisi **plaintext key** dan `key_prefix` — plaintext **hanya muncul satu kali** di response ini, tidak bisa dilihat lagi setelah itu
+- Optional input: `label` untuk menandai key (mis. nama agent / device)
+
+**Lihat Status API Key Aktif**
+- Mengembalikan metadata key aktif user saat ini: `key_prefix`, `label`, `created_at`, `last_used_at` — tanpa plaintext, tanpa hash
+- Return `null` / 404 jika user belum pernah generate key
+
+**Revoke API Key**
+- Set `revoked_at = now()` pada key aktif user; tidak ada key aktif setelah operasi ini sampai user generate ulang
+
 ---
 
 ### 5. Fitur Publik
@@ -234,7 +269,13 @@ Tidak memerlukan autentikasi apapun.
 
 ### 6. Fitur AI Agent
 
-AI agent mengakses API menggunakan static API key via header `x-api-key`. Agent adalah satu-satunya aktor yang bisa join dan complete quest.
+AI agent mengakses API menggunakan API key via header `x-api-key`. Key di-generate oleh user dari dashboard (lihat section 4), jadi setiap key terikat ke satu user. Agent adalah satu-satunya aktor yang bisa join dan complete quest.
+
+**Auth Flow di Backend**
+- Ambil `x-api-key` dari header. Plaintext key format: `qpk_<32-random-chars>` (total 36 char).
+- Lookup row `agent_api_keys` `WHERE key_prefix = <first-8-chars-of-plaintext> AND revoked_at IS NULL`. Jika tidak ada → 401.
+- Bandingkan SHA-256 hash dari plaintext yang diterima dengan `key_hash` di row menggunakan `crypto.timingSafeEqual`. Mismatch → 401.
+- Resolve `user_id` dari row, set `req.auth = { role: 'agent', user_id, key_id }`. Update `last_used_at = now()` (best-effort, non-blocking).
 
 **Discovery Quest**
 - Menggunakan endpoint publik `GET /quests` dengan filter `protocol` dan `type`
@@ -242,12 +283,13 @@ AI agent mengakses API menggunakan static API key via header `x-api-key`. Agent 
 
 **Join Quest**
 - Membuat record baru di `quest_participations` dengan status `inprogress`
-- Input: `quest_uuid`, `user_uuid` (wallet user yang akan mendapat credit)
+- Input: `quest_uuid` saja — `user_id` di-resolve otomatis dari API key (tidak perlu dikirim di body)
 - Validasi: belum ada record `inprogress` untuk kombinasi user + quest yang sama
 - Validasi: quest belum expired
 
 **Complete Quest**
 - Mengirimkan `tx_hash` dari transaksi on-chain yang sudah dieksekusi
+- Validasi ownership: participation yang dirujuk harus milik user yang sama dengan owner API key — agent tidak bisa complete participation milik user lain (return 403)
 - Backend **wajib memverifikasi `tx_hash` ke Solana RPC** sebelum mengubah status — tidak bisa langsung percaya input dari agent
 - Jika transaksi valid dan sesuai dengan `action_params` quest: update status ke `success`
 - Jika transaksi tidak valid: update status ke `failed`
@@ -270,3 +312,6 @@ AI agent mengakses API menggunakan static API key via header `x-api-key`. Agent 
 | Foreign key pakai bigint | Semua relasi antar tabel menggunakan kolom `id` bigint, bukan `uuid` |
 | Reward hanya untuk success | Endpoint claim hanya memproses participation dengan status `success` |
 | DB access tertutup | Semua akses ke database wajib melalui Express — tidak ada endpoint Supabase publik yang dibuka |
+| API Key per user | Setiap API key terikat ke satu user (wallet). Generate hanya bisa lewat JWT user. Satu user maksimal satu key aktif — regenerate me-revoke key lama otomatis. |
+| API Key storage | Plaintext key tidak pernah disimpan — hanya SHA-256 hash + 8-char prefix. Plaintext cuma muncul di response saat generate, lookup pakai prefix + constant-time compare. |
+| Agent bertindak atas nama user | Pada endpoint agent, `user_id` di-resolve dari API key — tidak boleh dikirim di body. Agent tidak bisa join/complete atas nama user lain. |
