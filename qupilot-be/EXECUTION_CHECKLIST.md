@@ -72,10 +72,10 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 
 ## Phase 7 — Module: Quests (Public side)
 
-- [ ] **7.1** Extend `quests.service.ts`: `listPublic({ protocol?, type? })` filter `expires_at > now()`, join provider untuk nama+logo, plus participation count.
-- [ ] **7.2** `listPublicByProvider(providerUuid)` — sama tapi filter by provider uuid.
-- [ ] **7.3** `getPublicDetail(uuid)` — full detail termasuk `action_params`.
-- [ ] **7.4** Controller + routes (no auth): `GET /quests`, `GET /providers/:uuid/quests`, `GET /quests/:uuid`.
+- [x] **7.1** Extend `quests.service.ts`: `listPublic({ protocol?, type? })` filter `expires_at > now()`, join provider untuk nama+logo, plus participation count.
+- [x] **7.2** `listPublicByProvider(providerUuid)` — sama tapi filter by provider uuid.
+- [x] **7.3** `getPublicDetail(uuid)` — full detail termasuk `action_params`.
+- [x] **7.4** Controller + routes (no auth): `GET /quests`, `GET /providers/:uuid/quests`, `GET /quests/:uuid`.
 
 ## Phase 8 — Module: User Participations & Achievements
 

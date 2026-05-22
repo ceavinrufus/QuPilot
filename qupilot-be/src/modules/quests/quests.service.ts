@@ -1,6 +1,6 @@
 import { supabase } from '../../config/supabase';
 import { throw404 } from '../../lib/errors';
-import type { CreateQuestBody, Protocol, QuestType } from './quests.schema';
+import type { CreateQuestBody, ListPublicQuery, Protocol, QuestType } from './quests.schema';
 
 export type QuestPublic = {
   uuid: string;
@@ -9,13 +9,21 @@ export type QuestPublic = {
   protocol: Protocol;
   quest_type: QuestType;
   action_params: Record<string, unknown>;
-  reward_amount: number;
+  reward_amount: number | string;
   reward_token: string;
   expires_at: string;
   created_at: string;
 };
 
 export type QuestListItem = QuestPublic & { participation_count: number };
+
+export type ProviderSummary = {
+  uuid: string;
+  display_name: string;
+  logo_url: string | null;
+};
+
+export type PublicQuestListItem = QuestListItem & { provider: ProviderSummary | null };
 
 export type QuestAnalytics = {
   total: number;
@@ -124,4 +132,90 @@ export const getDetailForProvider = async (
 
   const { id: _id, ...quest } = row;
   return { quest, analytics };
+};
+
+const nowIso = (): string => new Date().toISOString();
+
+export const listPublic = async (query: ListPublicQuery): Promise<PublicQuestListItem[]> => {
+  let q = supabase
+    .from('quests')
+    .select(
+      `${QUEST_PUBLIC_COLS}, user_providers(uuid, display_name, logo_url), quest_participations(count)`,
+    )
+    .gt('expires_at', nowIso())
+    .order('created_at', { ascending: false });
+
+  if (query.protocol) q = q.eq('protocol', query.protocol);
+  if (query.type) q = q.eq('quest_type', query.type);
+
+  const { data, error } = await q;
+  if (error) throw error;
+
+  const rows = (data ?? []) as Array<
+    QuestPublic & {
+      user_providers: ProviderSummary | ProviderSummary[] | null;
+      quest_participations?: Array<{ count: number }>;
+    }
+  >;
+
+  return rows.map((row) => ({
+    ...row,
+    provider: Array.isArray(row.user_providers) ? row.user_providers[0] ?? null : row.user_providers,
+    participation_count: row.quest_participations?.[0]?.count ?? 0,
+  }));
+};
+
+export const listPublicByProvider = async (providerUuid: string): Promise<PublicQuestListItem[]> => {
+  const provider_id = await resolveProviderId(providerUuid);
+
+  const { data, error } = await supabase
+    .from('quests')
+    .select(
+      `${QUEST_PUBLIC_COLS}, user_providers(uuid, display_name, logo_url), quest_participations(count)`,
+    )
+    .eq('provider_id', provider_id)
+    .gt('expires_at', nowIso())
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as Array<
+    QuestPublic & {
+      user_providers: ProviderSummary | ProviderSummary[] | null;
+      quest_participations?: Array<{ count: number }>;
+    }
+  >;
+
+  return rows.map((row) => ({
+    ...row,
+    provider: Array.isArray(row.user_providers) ? row.user_providers[0] ?? null : row.user_providers,
+    participation_count: row.quest_participations?.[0]?.count ?? 0,
+  }));
+};
+
+export const getPublicDetail = async (questUuid: string): Promise<{ quest: PublicQuestListItem }> => {
+  const { data, error } = await supabase
+    .from('quests')
+    .select(
+      `${QUEST_PUBLIC_COLS}, user_providers(uuid, display_name, logo_url), quest_participations(count)`,
+    )
+    .eq('uuid', questUuid)
+    .gt('expires_at', nowIso())
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw404('QUEST_NOT_FOUND', 'Quest not found');
+
+  const row = data as unknown as QuestPublic & {
+    user_providers: ProviderSummary | ProviderSummary[] | null;
+    quest_participations?: Array<{ count: number }>;
+  };
+
+  const quest: PublicQuestListItem = {
+    ...row,
+    provider: Array.isArray(row.user_providers) ? row.user_providers[0] ?? null : row.user_providers,
+    participation_count: row.quest_participations?.[0]?.count ?? 0,
+  };
+
+  return { quest };
 };

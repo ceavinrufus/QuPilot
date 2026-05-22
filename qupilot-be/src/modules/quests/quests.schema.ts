@@ -29,3 +29,10 @@ export const questUuidParamsSchema = z.object({
 });
 
 export type QuestUuidParams = z.infer<typeof questUuidParamsSchema>;
+
+export const listPublicQuerySchema = z.object({
+  protocol: protocolSchema.optional(),
+  type: questTypeSchema.optional(),
+});
+
+export type ListPublicQuery = z.infer<typeof listPublicQuerySchema>;
