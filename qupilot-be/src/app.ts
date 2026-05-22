@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { errorHandler } from './middlewares/error-handler';
 import { authProviderRouter } from './modules/auth-provider/auth-provider.routes';
 import { authUserRouter } from './modules/auth-user/auth-user.routes';
+import { providersRouter } from './modules/providers/providers.routes';
 
 export const createApp = (): Express => {
   const app = express();
@@ -18,6 +19,7 @@ export const createApp = (): Express => {
 
   app.use('/auth/provider', authProviderRouter);
   app.use('/auth/user', authUserRouter);
+  app.use('/providers', providersRouter);
 
   app.use(errorHandler);
 

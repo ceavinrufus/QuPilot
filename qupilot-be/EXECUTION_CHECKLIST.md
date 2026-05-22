@@ -60,8 +60,8 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 
 ## Phase 5 — Module: Providers (public listing)
 
-- [ ] **5.1** `src/modules/providers/providers.service.ts` — `listAll()` (field `spotlight` ada di response, default false).
-- [ ] **5.2** Controller + routes — `GET /providers` (public, no auth).
+- [x] **5.1** `src/modules/providers/providers.service.ts` — `listAll()` (field `spotlight` ada di response, default false).
+- [x] **5.2** Controller + routes — `GET /providers` (public, no auth).
 
 ## Phase 6 — Module: Quests (Provider side)
 
