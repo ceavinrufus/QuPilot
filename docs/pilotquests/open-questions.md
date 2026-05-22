@@ -42,3 +42,6 @@ As of **2026-05-22**, we agreed on:
 ## Verification
 - Solana: list the initial **allowlisted program IDs** and how we maintain/update them.
 - What is the minimum “parsed summary” we store from raw logs (transfers, token mints, pool address, etc.)?
+
+## Recommended defaults (MVP)
+See: `docs/pilotquests/recommended-defaults.md`

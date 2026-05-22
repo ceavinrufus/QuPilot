@@ -79,7 +79,10 @@ Default verification for MVP:
 - Multi-tx runs: **allowed** (store ordered tx list + step names)
 - Retry policy: **limited retries** (e.g., 3x with backoff) for transient failures
 
-## 6) Execution pipeline (high-level)
+## 6) Recommended defaults (MVP)
+See: `docs/pilotquests/recommended-defaults.md`
+
+## 7) Execution pipeline (high-level)
 1. Provider creates a quest (action + verification rules).
 2. User registers and attaches/configures their agent.
 3. System dispatches a quest to the user’s agent.
@@ -87,7 +90,7 @@ Default verification for MVP:
 5. System verifies completion from chain data (receipt + event logs).
 6. Store evidence, mark run as verified/completed.
 
-## 7) Open items to finalize next
+## 8) Open items to finalize next
 ### 6.1 The exact 3–5 MVP quests (must be explicit)
 We need the concrete list, for example:
 - swap 3 USDC -> SOL
