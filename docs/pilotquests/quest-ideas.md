@@ -6,6 +6,13 @@ This document proposes quest templates that are feasible given the current Byrea
 
 The goal is “open innovation”: generate a menu of quests a provider could publish, then we can pick the first 3–5 for MVP.
 
+## MVP safety principles (important)
+- Quests should be **non-speculative** by default (capability proof and safe automation).
+- Any value-moving quest (swap/LP) must be bounded by **user-defined caps**.
+- Verification should rely on **tx receipt + raw logs**, restricted to **allowlisted program IDs**.
+
+> Perps-related ideas below are included as an optional future category. They must never “decide trades” for users without explicit opt-in and strict limits.
+
 ---
 
 ## 0) Common quest structure (template)
@@ -148,4 +155,3 @@ Given Solana-first scope, a strong initial set is usually:
 5) Close CLMM position
 
 We can refine these into concrete quest specs once you confirm the desired tokens, pools, and constraints.
-

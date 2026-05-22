@@ -23,7 +23,13 @@ MVP will start with a **custom mix** of 3–5 quests (to be listed explicitly).
 ### 3.2 Target chain (initial)
 - Primary target for the initial phase: **Solana (Byreal DEX via byreal-cli)**.
 
-### 3.3 Verification (default)
+### 3.3 Safety rules (MVP)
+- **Non-speculative only** quests (capability proof; no directional “trading decisions” for users).
+- **User-defined caps are required** before an agent can execute any value-moving quest (swap/LP).
+- Execution must be constrained by **allowlisted Solana program IDs**.
+- Add **rate limiting** per user/agent to avoid spam and reduce risk.
+
+### 3.4 Verification (default)
 Default verification for MVP:
 - **Tx receipt baseline**, and
 - **store event logs** as the primary proof artifact (tx + relevant logs).
@@ -36,7 +42,7 @@ Default verification for MVP:
 - providerId
 - title, description
 - chain/network
-- action type (swap / lp / perps / etc.)
+- action type (swap / lp / etc.)
 - parameters schema (tokenIn/tokenOut/amount/etc.)
 - verification rules (allowlist, expected events, tolerances)
 - status (draft/active/paused/archived)
@@ -58,7 +64,22 @@ Default verification for MVP:
     - tx receipt (parsed summary)
     - event logs (raw + parsed)
 
-## 5) Execution pipeline (high-level)
+## 5) Decisions (locked for MVP)
+### 5.1 Quest creation
+- Quest creators: **Admin + Provider**
+- Provider onboarding minimum: **metadata + allowlists**
+
+### 5.2 Agents
+- Users can register **multiple agents**
+- Each user has a **default agent** used for dispatch unless overridden
+- Key storage: **local to the agent machine** (platform stores public address only)
+
+### 5.3 Reliability
+- Idempotency: **run lock per (questId, userId)** with TTL
+- Multi-tx runs: **allowed** (store ordered tx list + step names)
+- Retry policy: **limited retries** (e.g., 3x with backoff) for transient failures
+
+## 6) Execution pipeline (high-level)
 1. Provider creates a quest (action + verification rules).
 2. User registers and attaches/configures their agent.
 3. System dispatches a quest to the user’s agent.
@@ -66,7 +87,7 @@ Default verification for MVP:
 5. System verifies completion from chain data (receipt + event logs).
 6. Store evidence, mark run as verified/completed.
 
-## 6) Open items to finalize next
+## 7) Open items to finalize next
 ### 6.1 The exact 3–5 MVP quests (must be explicit)
 We need the concrete list, for example:
 - swap 3 USDC -> SOL
@@ -80,4 +101,3 @@ We need the concrete list, for example:
 ### 6.3 Scheduling & idempotency
 - When/how often quests are dispatched.
 - Prevent double execution (idempotency keys, run locks).
-

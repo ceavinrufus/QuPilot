@@ -2,25 +2,43 @@
 
 Goal of this document: collect decisions/questions we must resolve so implementation does not stay ambiguous.
 
+## Decisions (answered)
+As of **2026-05-22**, we agreed on:
+
+### Product & Flow
+- Quest creators (MVP): **Admin + Provider**
+- User can have **multiple agents**; dispatch uses the **user’s default agent** unless overridden
+- Provider onboarding minimum: **metadata + allowlists** (program/router allowlists + chain constraints)
+
+### Wallet & Security
+- Key storage: **local to the agent machine** (e.g., Byreal keys under `~/.config/byreal/keys/`); platform stores **public address only**
+- Safety controls (MVP): **user-defined caps + allowlist** (plus rate limiting)
+
+### Execution & Reliability
+- Idempotency (MVP): **run lock per (questId, userId)** with TTL
+- Multi-tx runs: **allowed** (store a list of tx signatures + step names)
+- Retry policy: **limited retries** (e.g., 3x with backoff) for transient failures
+
+### Verification
+- Primary verification: **tx receipt baseline**
+- Evidence: **tx signature + raw logs** (plus parsed summary)
+- Solana proof source: **allowlist program IDs**
+
 ## Product & Flow
-- Who creates quests? (admin-only, partner, or user-generated?)
-- Do quests have limits per agent/wallet?
-- How do we choose an agent? round-robin, queue, priorities?
-- Provider onboarding: what information must a provider submit to create quests (metadata, allowlists, chain constraints)?
-- User onboarding: how does a user attach an agent (key storage model, permissions, spending limits)?
+- Quest limits: do we enforce per-agent / per-user / per-quest daily caps (in addition to user-defined caps)?
+- User onboarding: exact agent registration flow (what the user/provider uploads, what gets created where, how we “bind” default agent).
+- Provider UI/API: how providers submit allowlists and how we validate them (program IDs, token mints, pools).
 
 ## Wallet & Security
-- Does each agent have its own wallet, or a shared wallet?
-- Where are keys stored (HSM/vault/env vars)? (never in the repo)
-- Policy for allowlisting contracts/routers that are allowed to be used.
-- Safety controls: max spend per quest/run, denylist/allowlist for programs/routers, rate limits.
+- Allowlist policy details: which **program IDs** are allowed for swap/CLMM; do we also allow aggregators?
+- Rate limiting: default limits (per user / per agent / per quest) and cooldown rules.
+- Caps model: how users set caps (per quest, per day, per token, global), and how caps are enforced at runtime.
 
 ## Execution & Reliability
-- Retry policy for RPC errors / long pending transactions.
-- Timeouts & idempotency: how do we prevent a quest from running twice?
-- Multi-tx runs: how do we model and verify quests that require approvals or multiple steps?
+- Locking: lock TTL defaults, and what happens on crash (recovery/unlock strategy).
+- Retry/backoff: exact retry schedule and which errors are retryable vs terminal.
+- Observability: what logs/metrics are required for debugging failed runs.
 
 ## Verification
-- What is the primary verification standard (tx/event/balance)?
-- Should evidence store raw logs, or is txHash + computed summary enough?
-- For Solana: which program IDs are acceptable proof sources? (Byreal programs, aggregators, etc.)
+- Solana: list the initial **allowlisted program IDs** and how we maintain/update them.
+- What is the minimum “parsed summary” we store from raw logs (transfers, token mints, pool address, etc.)?
