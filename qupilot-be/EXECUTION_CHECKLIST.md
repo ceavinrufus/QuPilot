@@ -114,8 +114,8 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
 
 ## Phase 12 — Module: Leaderboard
 
-- [ ] **12.1** `src/modules/leaderboard/leaderboard.service.ts` — single SQL query: join users + participations + quests, `total_reward` dari `status=success AND reward_claimed=true`, `success_rate = success/total`. `ORDER BY total_reward DESC, success_rate DESC LIMIT 100`.
-- [ ] **12.2** Controller + route public: `GET /leaderboard`.
+- [x] **12.1** `src/modules/leaderboard/leaderboard.service.ts` — join users + participations + quests, `total_reward` dari `status=success AND reward_claimed=true`, `success_rate = success/total`. `ORDER BY total_reward DESC, success_rate DESC LIMIT 100`.
+- [x] **12.2** Controller + route public: `GET /leaderboard`.
 
 ## Phase 13 — Wiring & Smoke Test
 
