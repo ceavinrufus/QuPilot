@@ -65,10 +65,10 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 
 ## Phase 6 — Module: Quests (Provider side)
 
-- [ ] **6.1** `src/modules/quests/quests.schema.ts` — zod `createQuestBody` dengan enum protocol & quest_type, validasi `expires_at` di masa depan (`refine`).
-- [ ] **6.2** `src/modules/quests/quests.service.ts` — `create(providerId, body)`, `listByProvider(providerId)` dengan participation count, `getDetailForProvider(providerId, questUuid)` dengan analytics (total/success/failed/success_rate).
-- [ ] **6.3** Controller + routes (provider-only): `POST /provider/quests`, `GET /provider/quests`, `GET /provider/quests/:uuid`. Mount dengan `authProvider`.
-- [ ] **6.4** Handler `PUT`/`PATCH /provider/quests/:uuid` → return **403** ("Quest is immutable") sesuai business rule.
+- [x] **6.1** `src/modules/quests/quests.schema.ts` — zod `createQuestBody` dengan enum protocol & quest_type, validasi `expires_at` di masa depan (`refine`).
+- [x] **6.2** `src/modules/quests/quests.service.ts` — `create(providerId, body)`, `listByProvider(providerId)` dengan participation count, `getDetailForProvider(providerId, questUuid)` dengan analytics (total/success/failed/success_rate).
+- [x] **6.3** Controller + routes (provider-only): `POST /provider/quests`, `GET /provider/quests`, `GET /provider/quests/:uuid`. Mount dengan `authProvider`.
+- [x] **6.4** Handler `PUT`/`PATCH /provider/quests/:uuid` → return **403** ("Quest is immutable") sesuai business rule.
 
 ## Phase 7 — Module: Quests (Public side)
 
