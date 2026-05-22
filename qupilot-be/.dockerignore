@@ -1,0 +1,11 @@
+node_modules
+dist
+npm-debug.log
+yarn-error.log
+.DS_Store
+.git
+.env
+.env.*
+supabase
+README.md
+API.md
