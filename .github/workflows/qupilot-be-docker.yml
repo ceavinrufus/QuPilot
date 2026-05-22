@@ -22,7 +22,7 @@ jobs:
 
       - name: check dockerhub secrets
         run: |
-          if [ -z "${{ secrets.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+          if [ -z "${{ env.DOCKERHUB_USERNAME }}" ] || [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
             echo "Missing DOCKERHUB_USERNAME / DOCKERHUB_TOKEN secrets"
             exit 1
           fi
