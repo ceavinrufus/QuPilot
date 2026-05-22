@@ -14,3 +14,5 @@ participationsRouter.get(
   validate(participationQuestUuidParamsSchema, 'params'),
   controller.getMineDetail,
 );
+
+participationsRouter.post('/me/claim', controller.claimMine);

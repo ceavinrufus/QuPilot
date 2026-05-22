@@ -1,5 +1,6 @@
 import { supabase } from '../../config/supabase';
 import { throw404 } from '../../lib/errors';
+import { transferSpl } from '../../lib/solana';
 
 export type ParticipationStatus = 'inprogress' | 'success' | 'failed';
 
@@ -29,6 +30,11 @@ export type ParticipationItem = {
 };
 
 export type ParticipationDetail = ParticipationItem & { can_claim: boolean };
+
+export type ClaimResult = {
+  claimed: Array<{ quest_uuid: string; tx_hash: string; amount: number | string; token: string }>;
+  failed: Array<{ quest_uuid: string; reason: string }>;
+};
 
 type UserRow = { id: number };
 
@@ -224,4 +230,67 @@ export const getDetailForUser = async (userUuid: string, questUuid: string): Pro
     ...item,
     can_claim: item.status === 'success' && !item.reward_claimed,
   };
+};
+
+const toQuestReward = (
+  quests:
+    | { uuid: string; reward_amount: number | string; reward_token: string }
+    | { uuid: string; reward_amount: number | string; reward_token: string }[]
+    | null,
+) => (Array.isArray(quests) ? quests[0] ?? null : quests);
+
+export const claimAll = async (userUuid: string, walletAddress: string): Promise<ClaimResult> => {
+  const user_id = await resolveUserId(userUuid);
+
+  const { data, error } = await supabase
+    .from('quest_participations')
+    .select('uuid, quests(uuid, reward_amount, reward_token)')
+    .eq('user_id', user_id)
+    .eq('status', 'success')
+    .eq('reward_claimed', false)
+    .order('started_at', { ascending: true });
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as Array<{
+    uuid: string;
+    quests:
+      | { uuid: string; reward_amount: number | string; reward_token: string }
+      | { uuid: string; reward_amount: number | string; reward_token: string }[]
+      | null;
+  }>;
+
+  const claimed: ClaimResult['claimed'] = [];
+  const failed: ClaimResult['failed'] = [];
+
+  for (const row of rows) {
+    const quest = toQuestReward(row.quests);
+    if (!quest) {
+      failed.push({ quest_uuid: 'unknown', reason: 'Quest not found' });
+      continue;
+    }
+
+    try {
+      const tx_hash = await transferSpl(walletAddress, quest.reward_token, quest.reward_amount);
+      const updated = await supabase
+        .from('quest_participations')
+        .update({ reward_claimed: true })
+        .eq('uuid', row.uuid)
+        .select('uuid')
+        .maybeSingle();
+      if (updated.error) throw updated.error;
+
+      claimed.push({
+        quest_uuid: quest.uuid,
+        tx_hash,
+        amount: quest.reward_amount,
+        token: quest.reward_token,
+      });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'Unknown error';
+      failed.push({ quest_uuid: quest.uuid, reason });
+    }
+  }
+
+  return { claimed, failed };
 };

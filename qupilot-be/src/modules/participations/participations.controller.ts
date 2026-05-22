@@ -26,3 +26,15 @@ export const getMineDetail: RequestHandler = async (req, res, next) => {
     next(err);
   }
 };
+
+export const claimMine: RequestHandler = async (req, res, next) => {
+  try {
+    if (!req.auth || req.auth.role !== 'user') {
+      throw new AppError(403, 'FORBIDDEN', 'Requires user role');
+    }
+    const result = await service.claimAll(req.auth.sub, req.auth.wallet_address);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};

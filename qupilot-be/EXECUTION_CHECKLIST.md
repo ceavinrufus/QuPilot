@@ -100,9 +100,9 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
 
 ## Phase 10 — Module: Claim Reward (on-chain)
 
-- [ ] **10.1** `src/lib/solana.ts` extend: `getConnection()`, `loadTreasuryKeypair()` dari env (base58), `transferSpl(to, mint, amount)` return tx signature.
-- [ ] **10.2** `participations.service.ts` — `claimAll(userId)`: select participations `status='success' AND reward_claimed=false` + quest reward info; loop transfer SPL ke wallet user; update `reward_claimed=true` per row sukses; handle partial failure.
-- [ ] **10.3** Controller + route: `POST /me/claim` (user-only). Response: `{ claimed: [{ quest_uuid, tx_hash, amount, token }], failed: [...] }`.
+- [x] **10.1** `src/lib/solana.ts` extend: `getConnection()`, `loadTreasuryKeypair()` dari env (base58), `transferSpl(to, mint, amount)` return tx signature.
+- [x] **10.2** `participations.service.ts` — `claimAll(userId)`: select participations `status='success' AND reward_claimed=false` + quest reward info; loop transfer SPL ke wallet user; update `reward_claimed=true` per row sukses; handle partial failure.
+- [x] **10.3** Controller + route: `POST /me/claim` (user-only). Response: `{ claimed: [{ quest_uuid, tx_hash, amount, token }], failed: [...] }`.
 
 ## Phase 11 — Module: AI Agent (join + complete)
 
