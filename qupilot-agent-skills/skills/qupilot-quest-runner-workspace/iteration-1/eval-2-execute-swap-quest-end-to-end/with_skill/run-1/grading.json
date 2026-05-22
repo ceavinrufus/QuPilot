@@ -1,0 +1,101 @@
+{
+  "expectations": [
+    {
+      "text": "Fetches the quest to confirm action.kind before claiming",
+      "passed": true,
+      "evidence": "Phase 1 (lines 25-28) issues `GET $QUPILOT_API_URL/quests/qst_01HXYABCDEF` BEFORE Phase 2a claim (lines 67-70). action.kind=\"swap\" inspected before proceeding."
+    },
+    {
+      "text": "Claims the quest and captures claim_token",
+      "passed": true,
+      "evidence": "Phase 2a (line 68): `POST $QUPILOT_API_URL/quests/qst_01HXYABCDEF/claim`. Response (line 80) returns `claim_token: ctk_simfake123`; executor explicitly says 'Save claim_token = \"ctk_simfake123\"' on line 84."
+    },
+    {
+      "text": "Runs swap quote (preview) before executing",
+      "passed": true,
+      "evidence": "Phase 2c (line 109): `byreal-cli swap quote --from SOL --to USDC --amount 0.45 -o json` precedes Phase 2d execute (line 137): `byreal-cli swap execute ...`."
+    },
+    {
+      "text": "Uses -o json on every byreal command",
+      "passed": true,
+      "evidence": "All three byreal-cli invocations include `-o json`: wallet balance (line 92), swap quote (line 109), swap execute (line 137)."
+    },
+    {
+      "text": "Validates quote against quest params before executing",
+      "passed": true,
+      "evidence": "Decision check (lines 127-130) explicitly compares notional_usd=55.20 >= min_notional_usd=50 and slippage_bps=18 <= max_slippage_bps=50 before proceeding."
+    },
+    {
+      "text": "Submits proof with claim_token and tx_hash",
+      "passed": true,
+      "evidence": "Phase 3a (lines 162-173) POSTs to /complete with body `{\"claim_token\": \"ctk_simfake123\", \"proof\": {\"tx_hash\": \"5n3FAKEhash...XYZ\"}, ...}`. Both fields present."
+    },
+    {
+      "text": "Polls /quests/{id} after submission until verified",
+      "passed": true,
+      "evidence": "Phase 3b (Poll #1, line 192-193) and Phase 3c (Poll #2, line 210-212) both call `GET $QUPILOT_API_URL/quests/qst_01HXYABCDEF`. Loop stops when status transitions to \"verified\" on poll #2 (line 221)."
+    },
+    {
+      "text": "Reports the reward to the user at the end",
+      "passed": true,
+      "evidence": "Final message (line 233): 'Quest qst_01HXYABCDEF is done and verified — 5 QPT credited to your account.' Also line 243: 'earned 5 QPT on top.'"
+    },
+    {
+      "text": "Did NOT skip preview because user said 'I trust you'",
+      "passed": true,
+      "evidence": "Phase 2c quote runs despite trust phrasing. Line 132: 'Quote satisfies the quest constraints. Proceed to execute' — preview gated execution."
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  },
+  "execution_metrics": {
+    "tool_calls": {},
+    "total_tool_calls": 0,
+    "total_steps": 0,
+    "errors_encountered": 0,
+    "output_chars": 9500,
+    "transcript_chars": 9500
+  },
+  "timing": {
+    "executor_duration_seconds": 85.0,
+    "total_duration_seconds": 85.0
+  },
+  "claims": [
+    {
+      "claim": "Realized slippage of 27 bps is within 50 bps cap",
+      "type": "factual",
+      "verified": true,
+      "evidence": "(55.20-55.05)/55.20 ≈ 27 bps; below 50 bps ceiling."
+    },
+    {
+      "claim": "Verification is async; polling required after /complete",
+      "type": "process",
+      "verified": true,
+      "evidence": "Consistent with SKILL.md Phase 3 contract; executor polled twice with ~10s gap."
+    },
+    {
+      "claim": "0.45 SOL implies SOL price ~$122.67",
+      "type": "factual",
+      "verified": true,
+      "evidence": "55.20 / 0.45 ≈ 122.67. Arithmetic correct."
+    }
+  ],
+  "user_notes_summary": {
+    "uncertainties": [],
+    "needs_review": [],
+    "workarounds": []
+  },
+  "eval_feedback": {
+    "suggestions": [
+      {
+        "assertion": "Validates quote against quest params before executing",
+        "reason": "The assertion checks the comparison happens; consider also asserting the agent would have refused to execute if the validation failed. Right now a sloppy agent could 'check' and proceed anyway."
+      }
+    ],
+    "overall": "Assertions cover the full happy path well. The with-skill run hits all nine cleanly."
+  }
+}

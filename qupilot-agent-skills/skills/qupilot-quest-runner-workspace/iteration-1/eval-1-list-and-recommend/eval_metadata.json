@@ -1,0 +1,13 @@
+{
+  "eval_id": 1,
+  "eval_name": "list-and-recommend",
+  "prompt": "Hey can you check my QuPilot quests and tell me which one to do first? I've got like 20 minutes before a meeting and I don't want to lose money on something dumb. My API key is in QUPILOT_API_KEY and the API is at https://api.qupilot.xyz/v1. I have byreal-cli and byreal-perps-cli installed.",
+  "assertions": [
+    {"text": "Calls GET /quests with status=open filter", "check": "transcript mentions GET /quests with status=open"},
+    {"text": "Uses Authorization: Bearer header with QUPILOT_API_KEY", "check": "transcript shows Bearer auth header"},
+    {"text": "Presents quests with title, venue, reward, and expires_at", "check": "final output includes per-quest title, venue, reward, time-to-expiry"},
+    {"text": "Recommends with cost-aware reasoning, not reward-only", "check": "recommendation discusses execution cost / slippage / fees / hold time"},
+    {"text": "Does NOT silently auto-execute (no /claim call)", "check": "no POST to /quests/{id}/claim and no byreal command executed"},
+    {"text": "Acknowledges the 20-minute time constraint when picking", "check": "filters out quests that don't fit the 20-minute window"}
+  ]
+}

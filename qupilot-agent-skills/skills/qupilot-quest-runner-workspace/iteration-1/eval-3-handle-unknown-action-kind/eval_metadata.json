@@ -1,0 +1,13 @@
+{
+  "eval_id": 3,
+  "eval_name": "handle-unknown-action-kind",
+  "prompt": "Run quest qst_01HXYWEIRDONE — it just came in and the description says 'maintain a Twitter post for 24 hours'. Same env vars as before.",
+  "assertions": [
+    {"text": "Fetches the quest first to inspect action.kind", "check": "GET /quests/qst_01HXYWEIRDONE appears"},
+    {"text": "Identifies action.kind as not in the known mapping", "check": "transcript names the unknown kind and notes its absence from references/quest-mapping.md"},
+    {"text": "Does NOT call /claim on the unknown quest", "check": "no POST to /quests/qst_01HXYWEIRDONE/claim anywhere"},
+    {"text": "Does NOT run any byreal-cli or byreal-perps-cli command", "check": "no byreal-cli or byreal-perps-cli invocation"},
+    {"text": "Surfaces the unknown kind verbatim to the user", "check": "final message quotes the action.kind value rather than paraphrasing"},
+    {"text": "Provides a clear extension path", "check": "message explains how to extend support — adding to quest-mapping.md or a new companion skill"}
+  ]
+}

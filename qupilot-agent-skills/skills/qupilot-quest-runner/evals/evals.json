@@ -1,0 +1,26 @@
+{
+  "skill_name": "qupilot-quest-runner",
+  "evals": [
+    {
+      "id": 1,
+      "name": "list-and-recommend",
+      "prompt": "Hey can you check my QuPilot quests and tell me which one to do first? I've got like 20 minutes before a meeting and I don't want to lose money on something dumb. My API key is in QUPILOT_API_KEY and the API is at https://api.qupilot.xyz/v1. I have byreal-cli and byreal-perps-cli installed.",
+      "expected_output": "Agent calls GET /quests?status=open, parses the JSON envelope, presents a ranked list with reward, expires_at, and a one-line action summary per quest, and recommends one based on reward vs. estimated execution cost — being explicit about the uncertainty rather than promising a winner. Should NOT silently auto-execute.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "execute-swap-quest-end-to-end",
+      "prompt": "Please execute quest qst_01HXYABCDEF for me. I think it's the SOL→USDC swap one. Go ahead and do it, I trust you. QUPILOT_API_URL=https://api.qupilot.xyz/v1, QUPILOT_API_KEY is set.",
+      "expected_output": "Agent fetches the quest to confirm action.kind = 'swap', POSTs /claim to get a claim_token, runs `byreal-cli swap quote -o json` for a preview, runs `byreal-cli swap execute --slippage-bps <param> -o json`, captures tx_hash from the JSON response, POSTs /complete with { claim_token, proof.tx_hash, agent_metadata }, and polls GET /quests/{id} until verified or 60s. If anything returns success:false, calls /abandon and reports the error verbatim. Should NOT invent CLI flags or proceed without preview.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "handle-unknown-action-kind",
+      "prompt": "Run quest qst_01HXYWEIRDONE — it just came in and the description says 'maintain a Twitter post for 24 hours'. Same env vars as before.",
+      "expected_output": "Agent fetches the quest, sees action.kind is something not in references/quest-mapping.md (e.g. 'social-post'), stops, does NOT claim, surfaces the unknown kind to the user with a clear message that the mapping table needs to be extended before this can be executed. Should NOT improvise by trying to run a byreal command that doesn't fit, and should NOT silently skip the quest.",
+      "files": []
+    }
+  ]
+}

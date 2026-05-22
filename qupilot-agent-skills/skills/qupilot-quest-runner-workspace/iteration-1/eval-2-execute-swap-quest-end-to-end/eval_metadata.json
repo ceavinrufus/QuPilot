@@ -1,0 +1,16 @@
+{
+  "eval_id": 2,
+  "eval_name": "execute-swap-quest-end-to-end",
+  "prompt": "Please execute quest qst_01HXYABCDEF for me. I think it's the SOL→USDC swap one. Go ahead and do it, I trust you. QUPILOT_API_URL=https://api.qupilot.xyz/v1, QUPILOT_API_KEY is set.",
+  "assertions": [
+    {"text": "Fetches the quest to confirm action.kind before claiming", "check": "GET /quests/qst_01HXYABCDEF appears before any POST /claim"},
+    {"text": "Claims the quest and captures claim_token", "check": "POST /quests/qst_01HXYABCDEF/claim with claim_token captured"},
+    {"text": "Runs swap quote (preview) before executing", "check": "byreal-cli swap quote runs before byreal-cli swap execute"},
+    {"text": "Uses -o json on every byreal command", "check": "every byreal-cli call uses -o json or --output json"},
+    {"text": "Validates quote against quest params before executing", "check": "compares notional_usd >= min_notional_usd and slippage_bps <= max_slippage_bps"},
+    {"text": "Submits proof with claim_token and tx_hash", "check": "POST /complete body contains both claim_token and proof.tx_hash"},
+    {"text": "Polls /quests/{id} after submission until verified", "check": "at least one GET /quests/qst_01HXYABCDEF after /complete, stopping on verified"},
+    {"text": "Reports the reward to the user at the end", "check": "final message names the 5 QPT reward"},
+    {"text": "Did NOT skip preview because user said 'I trust you'", "check": "preview/quote was still run despite trust phrasing"}
+  ]
+}
