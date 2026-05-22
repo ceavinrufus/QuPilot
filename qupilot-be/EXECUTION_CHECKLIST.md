@@ -119,8 +119,8 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
 
 ## Phase 13 — Wiring & Smoke Test
 
-- [ ] **13.1** `src/app.ts` — semua router ter-mount, urutan middleware bener (helmet → cors → json → routes → error-handler).
-- [ ] **13.2** `npm run typecheck` lulus tanpa error.
+- [x] **13.1** `src/app.ts` — semua router ter-mount, urutan middleware bener (helmet → cors → json → routes → error-handler).
+- [x] **13.2** `npm run typecheck` lulus tanpa error.
 - [ ] **13.3** Smoke flow manual (curl/Postman):
   - [ ] `POST /auth/provider/register` → 201 + uuid
   - [ ] `POST /auth/provider/login` → JWT
@@ -137,7 +137,7 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
   - [ ] `GET /me/participations` (Bearer user) → success + `can_claim=true`
   - [ ] `POST /me/claim` → on-chain transfer terjadi, tx_hash claim ada
   - [ ] `GET /leaderboard` → user muncul dengan `total_reward` & `success_rate`
-- [ ] **13.4** (Opsional) Bikin `API.md` ringkas — daftar endpoint + contoh request.
+- [x] **13.4** (Opsional) Bikin `API.md` ringkas — daftar endpoint + contoh request.
 
 ---
 
