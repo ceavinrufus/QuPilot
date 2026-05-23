@@ -1,6 +1,6 @@
 import { supabase } from '../../config/supabase';
 import { AppError, throw404 } from '../../lib/errors';
-import { verifyTxBasic } from '../../lib/solana';
+import { verifyTxBasic } from '../../lib/evm';
 import {
   claimAllByUserId,
   resolveUserWalletById,

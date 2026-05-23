@@ -10,8 +10,12 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 chars'),
   JWT_EXPIRES_IN: z.string().default('7d'),
 
-  SOLANA_RPC_URL: z.url(),
-  TREASURY_SECRET_KEY: z.string().min(1, 'TREASURY_SECRET_KEY (base58) is required'),
+  EVM_RPC_URL: z.url(),
+  TREASURY_PRIVATE_KEY: z
+    .string()
+    .trim()
+    .regex(/^(0x)?[a-fA-F0-9]{64}$/, 'TREASURY_PRIVATE_KEY must be a 32-byte hex string (64 chars), optional 0x')
+    .transform((v) => (v.startsWith('0x') ? v : `0x${v}`)),
 });
 
 const parsed = envSchema.safeParse(process.env);

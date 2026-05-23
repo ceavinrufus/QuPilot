@@ -48,15 +48,15 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
-          SOLANA_RPC_URL: ${{ secrets.SOLANA_RPC_URL }}
-          TREASURY_SECRET_KEY: ${{ secrets.TREASURY_SECRET_KEY }}
+          EVM_RPC_URL: ${{ secrets.EVM_RPC_URL }}
+          TREASURY_PRIVATE_KEY: ${{ secrets.TREASURY_PRIVATE_KEY }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: root
           password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           script_stop: true
-          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,JWT_SECRET,JWT_EXPIRES_IN,SOLANA_RPC_URL,TREASURY_SECRET_KEY
+          envs: DOCKERHUB_USERNAME,DOCKERHUB_TOKEN,SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,JWT_SECRET,JWT_EXPIRES_IN,EVM_RPC_URL,TREASURY_PRIVATE_KEY
           script: |
             set -e
 
@@ -71,12 +71,12 @@ jobs:
             docker run -d \
               --name "$CONTAINER" \
               --restart unless-stopped \
-              -p 8000:8000 \
-              -e PORT=8000 \
+              -p 8000:3000 \
+              -e PORT=3000 \
               -e SUPABASE_URL="$SUPABASE_URL" \
               -e SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
               -e JWT_SECRET="$JWT_SECRET" \
               -e JWT_EXPIRES_IN="$JWT_EXPIRES_IN" \
-              -e SOLANA_RPC_URL="$SOLANA_RPC_URL" \
-              -e TREASURY_SECRET_KEY="$TREASURY_SECRET_KEY" \
+              -e EVM_RPC_URL="$EVM_RPC_URL" \
+              -e TREASURY_PRIVATE_KEY="$TREASURY_PRIVATE_KEY" \
               "$IMAGE"

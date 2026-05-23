@@ -4,58 +4,62 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 
 > **Keputusan teknis (sudah dikonfirmasi):**
 > - Schema DB: SQL migration files di `supabase/migrations/`, dijalanin manual via Supabase SQL editor / CLI.
-> - Verifikasi tx_hash: **basic** — confirmed status di Solana RPC + signer match wallet user.
-> - Claim reward: **real on-chain** SPL transfer dari treasury keypair, simpan tx_hash hasil claim.
+> - Verifikasi tx_hash: **basic** — receipt `status=1` di EVM RPC + `from` match wallet user.
+> - Claim reward: **real on-chain** ERC-20 transfer dari treasury signer, simpan tx_hash hasil claim.
 > - API Key Agent: di-generate oleh **user (wallet)** dari dashboard via JWT user. **Satu key aktif per user** (regenerate me-revoke yang lama). Simpan **SHA-256 hash + 8-char prefix**, plaintext cuma muncul sekali saat generate. Endpoint agent resolve `user_id` dari key — body `user_uuid` dihapus.
 
 > **Cara apply migrations manual:**
 > 1. Buka Supabase Dashboard → SQL Editor.
 > 2. Jalanin isi `supabase/migrations/0001_*.sql` sampai `0006_*.sql` berurutan.
-> 3. Cek di Table Editor: `user_providers`, `users`, `quests`, `quest_participations`, `agent_api_keys` muncul, dan tiap table menampilkan badge **"RLS enabled"** (`0006` mengaktifkan Row Level Security tanpa policy → hanya `service_role` yang bisa akses, anon/authenticated otomatis ditolak).
+> 3. Cek di Table Editor: `users`, `quests`, `quest_participations`, `agent_api_keys` muncul, dan tiap table menampilkan badge **"RLS enabled"** (`0006` mengaktifkan Row Level Security tanpa policy → hanya `service_role` yang bisa akses, anon/authenticated otomatis ditolak). Catatan: `user_providers` adalah legacy dan akan di-drop oleh `0009`.
 
 ---
 
 ## Phase 0 — Foundation
 
 - [x] **0.1** Tambah folder structure: `src/config/`, `src/lib/`, `src/middlewares/`, `src/modules/`, `src/types/`, `supabase/migrations/` (`.gitkeep` boleh kalau masih kosong).
-- [x] **0.2** `src/config/env.ts` — load + validate env pakai zod: `PORT`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `AI_AGENT_API_KEY`, `SOLANA_RPC_URL`, `TREASURY_SECRET_KEY` (base58). Fail fast saat boot.
+- [x] **0.2** `src/config/env.ts` — load + validate env pakai zod: `PORT`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`, `JWT_EXPIRES_IN`, `EVM_RPC_URL`, `TREASURY_PRIVATE_KEY` (hex 64 chars, optional 0x). Fail fast saat boot.
 - [x] **0.3** `src/config/supabase.ts` — export single supabase client pakai service role key.
 - [x] **0.4** `src/lib/errors.ts` — class `AppError(status, code, message)` + helper `throw404/409/403/401/400`.
 - [x] **0.5** `src/middlewares/error-handler.ts` — central error middleware, format response konsisten `{ error: { code, message } }`.
 - [x] **0.6** `src/middlewares/validate.ts` — generic zod validator untuk `body` / `query` / `params`.
 - [x] **0.7** `src/types/express.d.ts` — augment `Request` dengan `auth?: { role, sub, ... }`.
-- [x] **0.8** `src/app.ts` — extract express setup dari `src/index.ts`, pasang error handler di akhir. Update `.env.example` tambahin `TREASURY_SECRET_KEY`.
+- [x] **0.8** `src/app.ts` — extract express setup dari `src/index.ts`, pasang error handler di akhir. Update `.env.example` tambahin `TREASURY_PRIVATE_KEY` + `EVM_RPC_URL`.
 
 ## Phase 1 — Database Schema (SQL migrations)
 
-- [x] **1.1** `supabase/migrations/0001_user_providers.sql` — table sesuai spec, unique index `username` & `uuid`, default `gen_random_uuid()` + enable extension `pgcrypto` jika belum.
+- [x] **1.1** `supabase/migrations/0001_user_providers.sql` — legacy table untuk provider (akan di-drop oleh `0009`).
 - [x] **1.2** `supabase/migrations/0002_users.sql` — table users, unique `wallet_address` & `uuid`.
-- [x] **1.3** `supabase/migrations/0003_quests.sql` — table quests, FK ke `user_providers(id)`, index `(provider_id)`, `(expires_at)`, `(protocol)`, `(quest_type)`.
+- [x] **1.3** `supabase/migrations/0003_quests.sql` — table quests (FK awal ke `user_providers(id)`, lalu dipindah ke `users(id)` oleh `0009`), index `(provider_id)`, `(expires_at)`, `(protocol)`, `(quest_type)`.
 - [x] **1.4** `supabase/migrations/0004_quest_participations.sql` — table participations, FK user/quest, **partial unique index** `(user_id, quest_id) WHERE status='inprogress'` untuk enforce "satu inprogress per kombinasi".
 - [x] **1.5** `supabase/migrations/0005_agent_api_keys.sql` — table `agent_api_keys` (id, uuid, user_id FK, key_prefix, key_hash, label, created_at, last_used_at, revoked_at) + **partial unique index** `(user_id) WHERE revoked_at IS NULL` (enforce satu key aktif per user) + index `(key_prefix)` untuk lookup.
 - [x] **1.6** `supabase/migrations/0006_enable_rls.sql` — `ENABLE ROW LEVEL SECURITY` di semua 5 table **tanpa policy**, plus `REVOKE ALL ... FROM anon, authenticated` + `ALTER DEFAULT PRIVILEGES` untuk table baru. Efek: hanya `service_role` (yang dipakai BE) yang punya akses; siapa pun yang coba lewat Supabase PostgREST publik / anon key dapat empty response.
 - [x] **1.7** Apply semua migration di Supabase SQL editor; verifikasi ke-5 table ada **dan RLS aktif** (badge "RLS enabled" di Dashboard). _(manual — user execute di Supabase Dashboard)_
+- [x] **1.8** `supabase/migrations/0009_merge_user_providers_into_users.sql` — merge role provider + user ke table `users`, FK `quests.provider_id` → `users.id`, drop table `user_providers`.
+- [ ] **1.9** Apply `0009` di Supabase SQL editor; verifikasi:
+  - Table `users` punya kolom `role`, `display_name`, `logo_url`
+  - `quests.provider_id` FK ke `users(id)`
+  - Table `user_providers` sudah tidak ada. _(manual)_
+- [x] **1.10** `supabase/migrations/0010_quest_tx_hash.sql` — tambah kolom `quests.tx_hash` (required).
+- [ ] **1.11** Apply `0010` di Supabase SQL editor; verifikasi `quests.tx_hash` ada & NOT NULL. _(manual)_
 
 ## Phase 2 — Auth Libraries
 
 - [x] **2.1** `src/lib/password.ts` — `hashPassword`, `verifyPassword` pakai bcrypt (cost 10).
-- [x] **2.2** `src/lib/jwt.ts` — `signProviderJwt({sub, username})`, `signUserJwt({sub, wallet_address})`, `verifyJwt()` return discriminated union by `role`.
-- [x] **2.3** `src/lib/wallet-signature.ts` — `verifySolanaSignature(walletAddress, message, signatureBase58)` pakai `tweetnacl` + `bs58`.
+- [x] **2.2** `src/lib/jwt.ts` — `signProviderJwt({sub, wallet_address})`, `signUserJwt({sub, wallet_address})`, `verifyJwt()` return discriminated union by `role`.
+- [x] **2.3** `src/lib/wallet-signature.ts` — `verifyEvmSignature(walletAddress, message, signatureHex)` pakai EVM signature recover.
 - [x] **2.4** `src/middlewares/auth-provider.ts` — extract Bearer, verify JWT, assert `role=user_provider`, set `req.auth`.
 - [x] **2.5** `src/middlewares/auth-user.ts` — sama dengan 2.4 tapi `role=user`.
 - [x] **2.6** `src/middlewares/auth-agent.ts` — ⚠️ **versi awal (static `AI_AGENT_API_KEY`) sudah ditulis tapi DEPRECATED** oleh perubahan desain. Akan di-rewrite di **9.x** jadi DB-lookup: ambil `x-api-key`, lookup `key_prefix`, constant-time compare SHA-256 hash, resolve `user_id`, set `req.auth = { role: 'agent', user_id, key_id }`, update `last_used_at`. Hapus juga `AI_AGENT_API_KEY` dari `env.ts` & `.env.example`.
 
-## Phase 3 — Module: Auth User Provider
+## Phase 3 — Module: Auth User Provider (DEPRECATED)
 
-- [x] **3.1** `src/modules/auth-provider/auth-provider.schema.ts` — zod `registerBody`, `loginBody`.
-- [x] **3.2** `src/modules/auth-provider/auth-provider.service.ts` — `register()` (hash + insert + handle 23505→409), `login()` (lookup + verify + sign JWT).
-- [x] **3.3** `src/modules/auth-provider/auth-provider.controller.ts` — `POST /register`, `POST /login`.
-- [x] **3.4** `src/modules/auth-provider/auth-provider.routes.ts` — router, mount di `app.ts` di `/auth/provider`.
+- [x] **3.1** Endpoint password-based provider login/register dihapus; provider login sekarang satu pintu via `POST /auth/user/login` (connect wallet) dengan role `user_provider`.
 
-## Phase 4 — Module: Auth User (Wallet)
+## Phase 4 — Module: Auth User (Wallet) + Role Selection
 
-- [x] **4.1** `src/modules/auth-user/auth-user.schema.ts` — zod `walletLoginBody { wallet_address, signature, message }`.
-- [x] **4.2** `src/modules/auth-user/auth-user.service.ts` — verify signature → upsert by `wallet_address` → sign user JWT.
+- [x] **4.1** `src/modules/auth-user/auth-user.schema.ts` — zod `walletLoginBody { wallet_address(0x), signature(0x), message, role?, display_name?, logo_url? }`.
+- [x] **4.2** `src/modules/auth-user/auth-user.service.ts` — verify signature (EVM) → jika wallet belum ada & role kosong return `{ registered:false }` → kalau role ada buat user → sign JWT by role.
 - [x] **4.3** `src/modules/auth-user/auth-user.controller.ts` + routes — `POST /auth/user/login`.
 
 ## Phase 5 — Module: Providers (public listing)
@@ -65,7 +69,7 @@ Step-by-step buat execute `quest-api-BE-requirements-v2.md`. Setiap step dipecah
 
 ## Phase 6 — Module: Quests (Provider side)
 
-- [x] **6.1** `src/modules/quests/quests.schema.ts` — zod `createQuestBody` dengan enum protocol & quest_type, validasi `expires_at` di masa depan (`refine`).
+- [x] **6.1** `src/modules/quests/quests.schema.ts` — zod `createQuestBody` dengan enum protocol & quest_type, validasi `expires_at` di masa depan (`refine`), dan field wajib `tx_hash`.
 - [x] **6.2** `src/modules/quests/quests.service.ts` — `create(providerId, body)`, `listByProvider(providerId)` dengan participation count, `getDetailForProvider(providerId, questUuid)` dengan analytics (total/success/failed/success_rate).
 - [x] **6.3** Controller + routes (provider-only): `POST /provider/quests`, `GET /provider/quests`, `GET /provider/quests/:uuid`. Mount dengan `authProvider`.
 - [x] **6.4** Handler `PUT`/`PATCH /provider/quests/:uuid` → return **403** ("Quest is immutable") sesuai business rule.
@@ -100,8 +104,8 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
 
 ## Phase 10 — Module: Claim Reward (on-chain)
 
-- [x] **10.1** `src/lib/solana.ts` extend: `getConnection()`, `loadTreasuryKeypair()` dari env (base58), `transferSpl(to, mint, amount)` return tx signature.
-- [x] **10.2** `participations.service.ts` — `claimAll(userId)`: select participations `status='success' AND reward_claimed=false` + quest reward info; loop transfer SPL ke wallet user; update `reward_claimed=true` per row sukses; handle partial failure.
+- [x] **10.1** `src/lib/evm.ts` — `getEvmProvider()` (EVM RPC), `loadTreasuryWallet()` dari `TREASURY_PRIVATE_KEY`, `transferErc20(to, token, amount)` return tx hash.
+- [x] **10.2** `participations.service.ts` — `claimAll(userId)`: select participations `status='success' AND reward_claimed=false` + quest reward info; loop transfer ERC-20 ke wallet user; update `reward_claimed=true` per row sukses; handle partial failure.
 - [x] **10.3** Controller + route: `POST /me/claim` (user-only). Response: `{ claimed: [{ quest_uuid, tx_hash, amount, token }], failed: [...] }`.
 - [x] **10.4** Refactor `participations.service.ts`: extract `claimAllByUserId(userId, walletAddress)` + `resolveUserWalletById(userId)` agar bisa dipakai ulang oleh agent module. Wrapper `claimAll(userUuid, wallet)` tetap dipertahankan untuk endpoint user.
 
@@ -110,7 +114,7 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
 - [x] **11.1** **Rewrite** `src/middlewares/auth-agent.ts`: ambil `x-api-key`, validasi format `qpk_*`, lookup `agent_api_keys` by `key_prefix` & `revoked_at IS NULL`, constant-time compare hash via `verifyKey` (lib/api-key), set `req.auth = { role: 'agent', user_id, key_id }`, update `last_used_at` async (fire-and-forget). Hapus `AI_AGENT_API_KEY` dari `env.ts` + `.env.example`.
 - [x] **11.2** `src/modules/agent/agent.schema.ts` — `joinBody { quest_uuid }` (tanpa `user_uuid` — di-resolve dari key), `completeBody { tx_hash }`.
 - [x] **11.3** `agent.service.ts` — `join(userId, questUuid)`: resolve quest by uuid (cek belum expired), insert participation status `inprogress` (partial unique handle race → 409 kalau sudah ada).
-- [x] **11.4** `agent.service.ts` — `complete(userId, participationUuid, txHash)`: load participation, **assert `participation.user_id === userId`** (else 403), panggil `verifyTxBasic(txHash, userWallet)` (RPC `getTransaction` + confirmed + signer match wallet). Set status success/failed + `completed_at` + `tx_hash`.
+- [x] **11.4** `agent.service.ts` — `complete(userId, participationUuid, txHash)`: load participation, **assert `participation.user_id === userId`** (else 403), panggil `verifyTxBasic(txHash, userWallet)` (EVM `getTransactionReceipt` + `status=1` + `from` match wallet). Set status success/failed + `completed_at` + `tx_hash`.
 - [x] **11.5** Controller + routes (agent-only via `authAgent`): `POST /agent/participations` (join), `POST /agent/participations/:uuid/complete`.
 - [x] **11.6** Tambah `agent.service.claim(userId)` — resolve `wallet_address` via `resolveUserWalletById`, panggil `claimAllByUserId` (re-use logic dari `participations.service`). Destination tetap wallet user, bukan agent.
 - [x] **11.7** Controller + route: `POST /agent/claim` (agent-only). Response shape sama dengan `POST /me/claim`. Idempotent — aman dipanggil berulang & co-existence dengan claim manual user.
@@ -145,20 +149,20 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
 - [x] **13.1** `src/app.ts` — semua router ter-mount, urutan middleware bener (helmet → cors → json → routes → error-handler).
 - [x] **13.2** `npm run typecheck` lulus tanpa error.
 - [ ] **13.3** Smoke flow manual (curl/Postman):
-  - [ ] `POST /auth/provider/register` → 201 + uuid
-  - [ ] `POST /auth/provider/login` → JWT
-  - [ ] `POST /provider/quests` (Bearer) → 201 + quest uuid
+  - [ ] `POST /auth/user/login` (wallet + signature, tanpa role) → `{ registered:false }`
+  - [ ] `POST /auth/user/login` (wallet + signature + role=user_provider + display_name/logo_url) → JWT provider
+  - [ ] `POST /provider/quests` (Bearer provider) → 201 + quest uuid
   - [ ] `PATCH /provider/quests/:uuid` → **403**
-  - [ ] `POST /auth/user/login` (wallet + signature) → JWT user
+  - [ ] `POST /auth/user/login` (wallet + signature + role=user) → JWT user
   - [ ] `POST /me/api-key` (Bearer user) → 201 + plaintext `qpk_*` (simpan; cuma muncul sekali)
   - [ ] `GET /me/api-key` → metadata key (prefix, label, created_at), tanpa plaintext
   - [ ] `GET /quests` (public) → quest muncul, ada nama+logo provider
   - [ ] `POST /agent/participations` (x-api-key) → 201 participation uuid (user di-resolve dari key)
-  - [ ] Eksekusi tx devnet manual → `POST /agent/participations/:uuid/complete` → status `success`
+  - [ ] Eksekusi tx manual → `POST /agent/participations/:uuid/complete` → status `success`
   - [ ] Pakai key user lain untuk complete participation user A → **403** (ownership check)
   - [ ] `POST /me/api-key` lagi → key lama otomatis revoked, key lama dipakai → **401**
   - [ ] `GET /me/participations` (Bearer user) → success + `can_claim=true`
-  - [ ] `POST /me/claim` → on-chain transfer terjadi, tx_hash claim ada
+  - [ ] `POST /me/claim` → on-chain ERC-20 transfer terjadi, tx_hash claim ada
   - [ ] `POST /agent/claim` (x-api-key) → reward yang belum di-claim ditransfer ke wallet user (bukan agent); call kedua kalinya `claimed=[]` (idempotent)
   - [ ] `GET /leaderboard` → user muncul dengan `total_reward` & `success_rate`
 - [x] **13.4** (Opsional) Bikin `API.md` ringkas — daftar endpoint + contoh request.

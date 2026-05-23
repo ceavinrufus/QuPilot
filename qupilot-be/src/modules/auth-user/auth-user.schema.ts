@@ -4,9 +4,8 @@ export const walletLoginBodySchema = z.object({
   wallet_address: z
     .string()
     .trim()
-    .min(32, 'wallet_address must be a base58 Solana public key')
-    .max(44),
-  signature: z.string().trim().min(1, 'signature is required (base58)'),
+    .regex(/^0x[a-fA-F0-9]{40}$/, 'wallet_address must be a 0x-prefixed EVM address'),
+  signature: z.string().trim().regex(/^0x[a-fA-F0-9]+$/, 'signature must be hex (0x...)'),
   message: z.string().min(1, 'message is required').max(2048),
   role: z.enum(['user', 'user_provider']).optional(),
   display_name: z.string().trim().min(1).max(100).optional(),
