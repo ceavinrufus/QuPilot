@@ -239,13 +239,22 @@ const toQuestReward = (
     | null,
 ) => (Array.isArray(quests) ? quests[0] ?? null : quests);
 
-export const claimAll = async (userUuid: string, walletAddress: string): Promise<ClaimResult> => {
-  const user_id = await resolveUserId(userUuid);
+export const resolveUserWalletById = async (userId: number): Promise<string> => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('wallet_address')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw404('USER_NOT_FOUND', 'User not found');
+  return (data as { wallet_address: string }).wallet_address;
+};
 
+export const claimAllByUserId = async (userId: number, walletAddress: string): Promise<ClaimResult> => {
   const { data, error } = await supabase
     .from('quest_participations')
     .select('uuid, quests(uuid, reward_amount, reward_token)')
-    .eq('user_id', user_id)
+    .eq('user_id', userId)
     .eq('status', 'success')
     .eq('reward_claimed', false)
     .order('started_at', { ascending: true });
@@ -293,4 +302,9 @@ export const claimAll = async (userUuid: string, walletAddress: string): Promise
   }
 
   return { claimed, failed };
+};
+
+export const claimAll = async (userUuid: string, walletAddress: string): Promise<ClaimResult> => {
+  const user_id = await resolveUserId(userUuid);
+  return claimAllByUserId(user_id, walletAddress);
 };

@@ -1,6 +1,11 @@
 import { supabase } from '../../config/supabase';
 import { AppError, throw404 } from '../../lib/errors';
 import { verifyTxBasic } from '../../lib/solana';
+import {
+  claimAllByUserId,
+  resolveUserWalletById,
+  type ClaimResult,
+} from '../participations/participations.service';
 
 type QuestRow = { id: number; expires_at: string };
 
@@ -49,13 +54,6 @@ type ParticipationRow = {
   status: 'inprogress' | 'success' | 'failed';
 };
 
-const resolveUserWallet = async (userId: number): Promise<string> => {
-  const { data, error } = await supabase.from('users').select('wallet_address').eq('id', userId).maybeSingle();
-  if (error) throw error;
-  if (!data) throw404('USER_NOT_FOUND', 'User not found');
-  return (data as { wallet_address: string }).wallet_address;
-};
-
 export const complete = async (
   userId: number,
   participationUuid: string,
@@ -78,7 +76,7 @@ export const complete = async (
     throw new AppError(409, 'PARTICIPATION_NOT_INPROGRESS', 'Participation is not in progress');
   }
 
-  const userWallet = await resolveUserWallet(userId);
+  const userWallet = await resolveUserWalletById(userId);
   const ok = await verifyTxBasic(txHash, userWallet);
   const status: 'success' | 'failed' = ok ? 'success' : 'failed';
   const completed_at = nowIso();
@@ -92,4 +90,9 @@ export const complete = async (
 
   if (updated.error) throw updated.error;
   return updated.data as { uuid: string; status: 'success' | 'failed'; completed_at: string };
+};
+
+export const claim = async (userId: number): Promise<ClaimResult> => {
+  const wallet = await resolveUserWalletById(userId);
+  return claimAllByUserId(userId, wallet);
 };

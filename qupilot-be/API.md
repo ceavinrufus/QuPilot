@@ -484,6 +484,23 @@ Body:
 { "participation": { "uuid": "uuid", "status": "success", "completed_at": "..." } }
 ```
 
+### POST /agent/claim
+
+Auth: `x-api-key`
+
+Claim semua participation milik user yang `status=success` dan `reward_claimed=false`. Agent bertindak atas nama user yang punya API key — reward dikirim ke `wallet_address` user tersebut, bukan ke agent. Idempotent: aman dipanggil berulang (yang sudah claimed otomatis dilewat).
+
+Body: (kosong)
+
+200 Response:
+
+```json
+{
+  "claimed": [{ "quest_uuid": "uuid", "tx_hash": "txhash", "amount": 1, "token": "Token/Mint" }],
+  "failed": [{ "quest_uuid": "uuid", "reason": "..." }]
+}
+```
+
 ## Leaderboard (Public)
 
 ### GET /leaderboard
