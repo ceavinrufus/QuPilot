@@ -51,17 +51,34 @@ type ParticipationRow = {
   id: number;
   uuid: string;
   user_id: number;
+  quest_id: number;
   status: 'inprogress' | 'success' | 'failed';
+};
+
+type QuestRewardRow = {
+  id: number;
+  reward_per_user: number | string;
+  total_reward_pool: number | string;
+  total_reward_distributed: number | string;
+};
+
+const toBigIntSafe = (v: number | string): bigint => {
+  if (typeof v === 'number') return BigInt(Math.trunc(v));
+  return BigInt(v);
 };
 
 export const complete = async (
   userId: number,
   participationUuid: string,
   txHash: string,
-): Promise<{ uuid: string; status: 'success' | 'failed'; completed_at: string }> => {
+): Promise<{
+  uuid: string;
+  status: 'success' | 'failed';
+  completed_at: string;
+}> => {
   const { data, error } = await supabase
     .from('quest_participations')
-    .select('id, uuid, user_id, status')
+    .select('id, uuid, user_id, quest_id, status')
     .eq('uuid', participationUuid)
     .maybeSingle();
 
@@ -81,15 +98,52 @@ export const complete = async (
   const status: 'success' | 'failed' = ok ? 'success' : 'failed';
   const completed_at = nowIso();
 
+  // Saat sukses, bump quests.total_reward_distributed sebesar reward_per_user.
+  // Tolak kalau pool sudah habis (total_reward_distributed + reward_per_user > pool)
+  // supaya tidak melewati janji provider.
+  if (status === 'success') {
+    const questRes = await supabase
+      .from('quests')
+      .select('id, reward_per_user, total_reward_pool, total_reward_distributed')
+      .eq('id', row.quest_id)
+      .maybeSingle();
+    if (questRes.error) throw questRes.error;
+    if (!questRes.data) throw404('QUEST_NOT_FOUND', 'Quest not found');
+
+    const quest = questRes.data as unknown as QuestRewardRow;
+    const perUser = toBigIntSafe(quest.reward_per_user);
+    const pool = toBigIntSafe(quest.total_reward_pool);
+    const distributed = toBigIntSafe(quest.total_reward_distributed);
+    const newDistributed = distributed + perUser;
+
+    if (newDistributed > pool) {
+      throw new AppError(409, 'REWARD_POOL_EXHAUSTED', 'Quest reward pool has been exhausted');
+    }
+
+    const bumpRes = await supabase
+      .from('quests')
+      .update({ total_reward_distributed: newDistributed.toString() })
+      .eq('id', quest.id);
+    if (bumpRes.error) throw bumpRes.error;
+  }
+
   const updated = await supabase
     .from('quest_participations')
-    .update({ status, completed_at, tx_hash: txHash })
+    .update({
+      status,
+      completed_at,
+      tx_hash: txHash,
+    })
     .eq('id', row.id)
     .select('uuid, status, completed_at')
     .single();
 
   if (updated.error) throw updated.error;
-  return updated.data as { uuid: string; status: 'success' | 'failed'; completed_at: string };
+  return updated.data as {
+    uuid: string;
+    status: 'success' | 'failed';
+    completed_at: string;
+  };
 };
 
 export const claim = async (userId: number): Promise<ClaimResult> => {

@@ -99,7 +99,9 @@ Menyimpan quest yang dibuat oleh user provider. Quest langsung aktif dan publik 
 | protocol | text | Enum: `byreal`, `bybit`, `sui` |
 | quest_type | text | Enum: `swap`, `lp`, `stake` |
 | action_params | jsonb | Parameter siap pakai untuk eksekusi on-chain oleh AI agent |
-| reward_amount | numeric | Besar reward jika quest berhasil |
+| total_reward_pool | bigint NOT NULL | Total reward (base units, bigint) yang tersedia untuk quest ini. Batas atas akumulasi distribusi. Immutable setelah quest dibuat. |
+| reward_per_user | bigint NOT NULL | Reward (base units) yang diterima setiap user yang berhasil men-complete quest. Immutable setelah quest dibuat. Constraint DB: `total_reward_pool >= reward_per_user`. |
+| total_reward_distributed | bigint NOT NULL DEFAULT 0 | Akumulasi reward yang sudah diberikan ke semua participation `status=success` quest ini. Di-increment server saat agent berhasil complete participation. Hanya kolom inilah di `quests` yang mutable. Constraint DB: `total_reward_distributed <= total_reward_pool`. |
 | reward_token | text | Token reward (mint address atau simbol) |
 | expires_at | timestamptz | Quest tidak muncul di listing publik setelah tanggal ini |
 | created_at | timestamptz | |
@@ -125,6 +127,8 @@ Menyimpan record eksekusi quest oleh AI agent atas nama user tertentu.
 | reward_claimed | bool | Default false, true setelah claim berhasil |
 | started_at | timestamptz | Waktu AI agent mulai mengeksekusi quest |
 | completed_at | timestamptz | Waktu status berubah ke success/failed |
+
+**Tidak ada kolom reward** di `quest_participations`. Nominal reward untuk claim direfer ke `quests.reward_per_user` — aman karena kolom itu immutable.
 
 ---
 
@@ -190,8 +194,9 @@ Semua endpoint memerlukan JWT dengan role `user_provider`.
 **Create Quest**
 - Quest langsung aktif dan publik setelah dibuat — tidak ada tahap draft atau publish
 - Quest tidak bisa diedit dalam kondisi apapun setelah dibuat — enforce di level backend, return 403 jika ada request PUT/PATCH
-- Input wajib: `title`, `description`, `protocol`, `quest_type`, `action_params`, `reward_amount`, `reward_token`, `expires_at`
-- Validasi: `expires_at` harus di masa depan
+- Input wajib: `title`, `description`, `protocol`, `quest_type`, `action_params`, `total_reward_pool`, `reward_per_user`, `reward_token`, `expires_at`
+- Validasi: `expires_at` harus di masa depan; `total_reward_pool >= reward_per_user` (zod + DB check); kedua nilai reward >= 0
+- `total_reward_distributed` di-set 0 oleh server (tidak di body)
 - Response mengembalikan `uuid` quest sebagai identifier publik
 
 **Lihat Daftar Quest Milik Provider**
@@ -298,6 +303,11 @@ AI agent mengakses API menggunakan API key via header `x-api-key`. Key di-genera
 - Jika transaksi valid dan sesuai dengan `action_params` quest: update status ke `success`
 - Jika transaksi tidak valid: update status ke `failed`
 - Set `completed_at` ke waktu sekarang
+- **Saat dan hanya saat status berubah ke `success`:**
+  - Load `quests.{reward_per_user, total_reward_pool, total_reward_distributed}` untuk quest yang bersangkutan.
+  - Hitung `new = total_reward_distributed + reward_per_user`. Kalau `new > total_reward_pool` → return 409 `REWARD_POOL_EXHAUSTED` (status participation tetap inprogress, agent boleh retry / inform user).
+  - Else update `quests.total_reward_distributed = new`.
+- Kalau `failed`: `total_reward_distributed` tidak berubah, pool tidak terpakai.
 
 **Claim Reward (Agent-triggered)**
 - Endpoint: `POST /agent/claim` (auth via `x-api-key`)
@@ -324,6 +334,10 @@ AI agent mengakses API menggunakan API key via header `x-api-key`. Key di-genera
 | Reward hanya untuk success | Endpoint claim hanya memproses participation dengan status `success` |
 | Claim destination | Apapun trigger-nya (user manual atau agent otomatis), reward selalu ditransfer ke `users.wallet_address` milik owner participation. Agent bukan destination. |
 | Claim idempotent | Semua endpoint claim aman dipanggil berulang — row dengan `reward_claimed=true` di-skip, sehingga dual-trigger user + agent tidak menyebabkan double-transfer. |
+| Reward source-of-truth | Nilai reward yang ditransfer ke user diambil langsung dari `quests.reward_per_user`. Aman karena kolom ini immutable setelah quest dibuat. `quest_participations` sengaja tidak punya kolom reward sendiri. |
+| Reward bigint | Semua angka reward (`quests.total_reward_pool`, `quests.reward_per_user`, `quests.total_reward_distributed`, response `claimed[].amount`, `leaderboard.total_reward`) bertipe `bigint` di DB dan dikirim sebagai **string** di JSON response untuk menghindari precision loss JavaScript. |
+| Pool cap | `total_reward_distributed` tidak boleh melebihi `total_reward_pool`. Dijaga di dua tempat: (1) check constraint DB, (2) pre-check di `agent.service.complete` sebelum bump — kalau bakal exceed, return 409 `REWARD_POOL_EXHAUSTED`. |
+| Quest mutability scope | Quest masih "immutable" untuk semua field yang dibuat user (title/description/protocol/total_reward_pool/reward_per_user/dst.) — return 403 untuk PATCH/PUT. Satu-satunya kolom yang berubah pasca create adalah `total_reward_distributed`, yang diubah eksklusif oleh server saat agent berhasil complete (bukan oleh provider). |
 | DB access tertutup | Semua akses ke database wajib melalui Express — tidak ada endpoint Supabase publik yang dibuka |
 | API Key per user | Setiap API key terikat ke satu user (wallet). Generate hanya bisa lewat JWT user. Satu user maksimal satu key aktif — regenerate me-revoke key lama otomatis. |
 | API Key storage | Plaintext key tidak pernah disimpan — hanya SHA-256 hash + 8-char prefix. Plaintext cuma muncul di response saat generate, lookup pakai prefix + constant-time compare. |

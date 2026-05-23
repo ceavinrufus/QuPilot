@@ -115,6 +115,26 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
 - [x] **11.6** Tambah `agent.service.claim(userId)` — resolve `wallet_address` via `resolveUserWalletById`, panggil `claimAllByUserId` (re-use logic dari `participations.service`). Destination tetap wallet user, bukan agent.
 - [x] **11.7** Controller + route: `POST /agent/claim` (agent-only). Response shape sama dengan `POST /me/claim`. Idempotent — aman dipanggil berulang & co-existence dengan claim manual user.
 
+## Phase 14 — Reward Bigint (pool + per-user + distributed)
+
+- [x] **14.1** Migration `supabase/migrations/0008_reward_amount_columns.sql` (drop leaderboard view dulu sebelum alter, lalu recreate):
+  - `quests.reward_amount` → **rename** jadi `quests.reward_per_user` + ubah type ke `bigint` (immutable, per-user reward).
+  - Tambah `quests.total_reward_pool bigint NOT NULL` — total reward tersedia (backfill `= reward_per_user` untuk row existing, lalu set NOT NULL).
+  - Tambah `quests.total_reward_distributed bigint NOT NULL DEFAULT 0`.
+  - Check constraints: `total_reward_pool >= 0`, `total_reward_pool >= reward_per_user`, `total_reward_distributed >= 0`, `total_reward_distributed <= total_reward_pool`.
+  - `quest_participations`: **tidak ditambah** kolom reward — nominal claim direfer dari `quests.reward_per_user` (immutable).
+  - Recreate `leaderboard` view: `total_reward = sum(q.reward_per_user) WHERE status=success AND reward_claimed=true`.
+- [x] **14.2** `quests.schema.ts` — body terima `total_reward_pool` + `reward_per_user` (bigint, di-stringify), plus refine `total_reward_pool >= reward_per_user`. Hapus field `reward_amount`.
+- [x] **14.3** `quests.service.ts` — `QUEST_PUBLIC_COLS` & type `QuestPublic` ganti `reward_amount` → `{ total_reward_pool, reward_per_user, total_reward_distributed }`. `create()` insert kedua field pool & per_user.
+- [x] **14.4** `agent.service.complete` — saat status = `success`: load `{reward_per_user, total_reward_pool, total_reward_distributed}`, pre-check `new <= pool` (else 409 `REWARD_POOL_EXHAUSTED`), lalu bump `total_reward_distributed`. Tidak ada snapshot di participation.
+- [x] **14.5** `participations.service.ts` — `ParticipationItem.quest` expose `{ total_reward_pool, reward_per_user, total_reward_distributed }` (tanpa `reward_amount` di level participation). `claimAllByUserId` source `quests.reward_per_user` langsung sebagai amount transfer.
+- [ ] **14.6** Apply `0008` di Supabase SQL editor; verifikasi:
+  - `quests.reward_per_user` exist (bigint), kolom `reward_amount` sudah TIDAK ada.
+  - `quests.total_reward_pool` exist (bigint NOT NULL).
+  - `quests.total_reward_distributed` exist (bigint NOT NULL DEFAULT 0).
+  - `quest_participations` TIDAK punya kolom `reward_amount`.
+  - View `leaderboard` ada & query `select * from leaderboard limit 1` jalan. _(manual)_
+
 ## Phase 12 — Module: Leaderboard
 
 - [x] **12.1** `src/modules/leaderboard/leaderboard.service.ts` — join users + participations + quests, `total_reward` dari `status=success AND reward_claimed=true`, `success_rate = success/total`. `ORDER BY total_reward DESC, success_rate DESC LIMIT 100`.

@@ -3,6 +3,7 @@ import { supabase } from '../../config/supabase';
 export type LeaderboardEntry = {
   user_uuid: string;
   wallet_address: string;
+  // bigint sum returned as string from PostgREST
   total_reward: number | string;
   success_rate: number;
 };

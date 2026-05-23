@@ -5,6 +5,7 @@
 - Base URL: `{API_URL}` (contoh: `http://localhost:3000`)
 - Content-Type: `application/json`
 - Semua timestamp: ISO string (`2026-05-22T00:00:00.000Z`)
+- **Reward amount:** semua nilai reward (`quests.total_reward_pool`, `quests.reward_per_user`, `quests.total_reward_distributed`, `claimed[].amount`, `leaderboard.total_reward`) di-store sebagai `bigint` di DB dan dikirim sebagai **string numeric** di JSON response (mis. `"1000000"`) untuk menghindari precision loss di JavaScript. FE pakai `BigInt(...)` atau library decimal kalau perlu hitung. Saat create quest, body boleh kirim string atau number — server akan coerce ke bigint. Note: `quest_participations` **tidak** punya kolom reward — nominal claim direfer ke `quests.reward_per_user` yang immutable.
 
 ## Error Response
 
@@ -181,16 +182,37 @@ Body:
   "protocol": "byreal",
   "quest_type": "swap",
   "action_params": { "any": "json" },
-  "reward_amount": 1,
+  "total_reward_pool": "10000000",
+  "reward_per_user": "1000000",
   "reward_token": "Token/Mint",
   "expires_at": "2026-06-01T00:00:00.000Z"
 }
 ```
 
+- `total_reward_pool`: total reward (bigint) yang tersedia untuk quest ini — batas atas akumulasi distribusi.
+- `reward_per_user`: reward (bigint) yang diterima setiap user yang berhasil men-complete quest.
+- Validasi: `total_reward_pool >= reward_per_user` (kalau lebih kecil, 400 VALIDATION_ERROR).
+- Kedua nilai diterima sebagai string atau integer; server reject nilai negatif / non-integer.
+
 201 Response:
 
 ```json
-{ "quest": { "uuid": "uuid", "title": "...", "description": "...", "protocol": "byreal", "quest_type": "swap", "action_params": {}, "reward_amount": 1, "reward_token": "Token/Mint", "expires_at": "...", "created_at": "..." } }
+{
+  "quest": {
+    "uuid": "uuid",
+    "title": "...",
+    "description": "...",
+    "protocol": "byreal",
+    "quest_type": "swap",
+    "action_params": {},
+    "total_reward_pool": "10000000",
+    "reward_per_user": "1000000",
+    "total_reward_distributed": "0",
+    "reward_token": "Token/Mint",
+    "expires_at": "...",
+    "created_at": "..."
+  }
+}
 ```
 
 ### GET /provider/quests
@@ -209,7 +231,9 @@ Auth: Provider JWT
       "protocol": "byreal",
       "quest_type": "swap",
       "action_params": {},
-      "reward_amount": 1,
+      "total_reward_pool": "10000000",
+      "reward_per_user": "1000000",
+      "total_reward_distributed": "5000000",
       "reward_token": "Token/Mint",
       "expires_at": "...",
       "created_at": "...",
@@ -218,6 +242,8 @@ Auth: Provider JWT
   ]
 }
 ```
+
+`total_reward_distributed` = akumulasi reward (bigint) yang sudah diberikan ke participation `status=success` untuk quest ini. Di-increment di server saat `POST /agent/participations/:uuid/complete` berhasil verify tx.
 
 ### GET /provider/quests/:uuid
 
@@ -234,7 +260,9 @@ Auth: Provider JWT
     "protocol": "byreal",
     "quest_type": "swap",
     "action_params": {},
-    "reward_amount": 1,
+    "total_reward_pool": "10000000",
+    "reward_per_user": "1000000",
+    "total_reward_distributed": "5000000",
     "reward_token": "Token/Mint",
     "expires_at": "...",
     "created_at": "..."
@@ -274,7 +302,9 @@ Query:
       "protocol": "byreal",
       "quest_type": "swap",
       "action_params": {},
-      "reward_amount": 1,
+      "total_reward_pool": "10000000",
+      "reward_per_user": "1000000",
+      "total_reward_distributed": "5000000",
       "reward_token": "Token/Mint",
       "expires_at": "...",
       "created_at": "...",
@@ -304,7 +334,9 @@ Public.
     "protocol": "byreal",
     "quest_type": "swap",
     "action_params": {},
-    "reward_amount": 1,
+    "total_reward_pool": "10000000",
+    "reward_per_user": "1000000",
+    "total_reward_distributed": "5000000",
     "reward_token": "Token/Mint",
     "expires_at": "...",
     "created_at": "...",
@@ -338,7 +370,9 @@ Auth: User JWT
         "description": "...",
         "protocol": "byreal",
         "quest_type": "swap",
-        "reward_amount": 1,
+        "total_reward_pool": "10000000",
+        "reward_per_user": "1000000",
+        "total_reward_distributed": "5000000",
         "reward_token": "Token/Mint",
         "expires_at": "...",
         "created_at": "...",
@@ -348,6 +382,8 @@ Auth: User JWT
   ]
 }
 ```
+
+Nominal reward yang akan diterima user (kalau claim) di-refer dari `quest.reward_per_user`. `quest_participations` sengaja tidak punya kolom reward sendiri karena `quests.reward_per_user` immutable setelah quest dibuat.
 
 ### GET /me/participations/:questUuid
 
@@ -371,7 +407,9 @@ Auth: User JWT
       "description": "...",
       "protocol": "byreal",
       "quest_type": "swap",
-      "reward_amount": 1,
+      "total_reward_pool": "10000000",
+      "reward_per_user": "1000000",
+      "total_reward_distributed": "5000000",
       "reward_token": "Token/Mint",
       "expires_at": "...",
       "created_at": "...",
@@ -390,7 +428,7 @@ Claim semua participation yang `status=success` dan `reward_claimed=false`.
 
 ```json
 {
-  "claimed": [{ "quest_uuid": "uuid", "tx_hash": "txhash", "amount": 1, "token": "Token/Mint" }],
+  "claimed": [{ "quest_uuid": "uuid", "tx_hash": "txhash", "amount": "1000000", "token": "Token/Mint" }],
   "failed": [{ "quest_uuid": "uuid", "reason": "..." }]
 }
 ```
@@ -481,8 +519,20 @@ Body:
 200 Response:
 
 ```json
-{ "participation": { "uuid": "uuid", "status": "success", "completed_at": "..." } }
+{
+  "participation": {
+    "uuid": "uuid",
+    "status": "success",
+    "completed_at": "..."
+  }
+}
 ```
+
+Saat status berubah ke `success`:
+- `quests.total_reward_distributed` di-increment sebesar `quests.reward_per_user`.
+- Kalau `total_reward_distributed + reward_per_user > total_reward_pool` → 409 `REWARD_POOL_EXHAUSTED` (pool sudah habis untuk quest ini).
+
+Saat status `failed`: `total_reward_distributed` tidak berubah.
 
 ### POST /agent/claim
 
@@ -496,7 +546,7 @@ Body: (kosong)
 
 ```json
 {
-  "claimed": [{ "quest_uuid": "uuid", "tx_hash": "txhash", "amount": 1, "token": "Token/Mint" }],
+  "claimed": [{ "quest_uuid": "uuid", "tx_hash": "txhash", "amount": "1000000", "token": "Token/Mint" }],
   "failed": [{ "quest_uuid": "uuid", "reason": "..." }]
 }
 ```
@@ -514,10 +564,12 @@ Query:
 ```json
 {
   "entries": [
-    { "user_uuid": "uuid", "wallet_address": "SolanaPubkeyBase58", "total_reward": 10, "success_rate": 0.8 }
+    { "user_uuid": "uuid", "wallet_address": "SolanaPubkeyBase58", "total_reward": "10000000", "success_rate": 0.8 }
   ]
 }
 ```
+
+`total_reward` di-sum dari `quests.reward_per_user` untuk participation `status=success AND reward_claimed=true`. Bigint sebagai string.
 
 ## Contoh Curl Singkat
 
