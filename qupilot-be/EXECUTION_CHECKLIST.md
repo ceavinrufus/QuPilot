@@ -103,6 +103,7 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
 - [x] **10.1** `src/lib/solana.ts` extend: `getConnection()`, `loadTreasuryKeypair()` dari env (base58), `transferSpl(to, mint, amount)` return tx signature.
 - [x] **10.2** `participations.service.ts` — `claimAll(userId)`: select participations `status='success' AND reward_claimed=false` + quest reward info; loop transfer SPL ke wallet user; update `reward_claimed=true` per row sukses; handle partial failure.
 - [x] **10.3** Controller + route: `POST /me/claim` (user-only). Response: `{ claimed: [{ quest_uuid, tx_hash, amount, token }], failed: [...] }`.
+- [x] **10.4** Refactor `participations.service.ts`: extract `claimAllByUserId(userId, walletAddress)` + `resolveUserWalletById(userId)` agar bisa dipakai ulang oleh agent module. Wrapper `claimAll(userUuid, wallet)` tetap dipertahankan untuk endpoint user.
 
 ## Phase 11 — Module: AI Agent (join + complete)
 
@@ -111,6 +112,28 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
 - [x] **11.3** `agent.service.ts` — `join(userId, questUuid)`: resolve quest by uuid (cek belum expired), insert participation status `inprogress` (partial unique handle race → 409 kalau sudah ada).
 - [x] **11.4** `agent.service.ts` — `complete(userId, participationUuid, txHash)`: load participation, **assert `participation.user_id === userId`** (else 403), panggil `verifyTxBasic(txHash, userWallet)` (RPC `getTransaction` + confirmed + signer match wallet). Set status success/failed + `completed_at` + `tx_hash`.
 - [x] **11.5** Controller + routes (agent-only via `authAgent`): `POST /agent/participations` (join), `POST /agent/participations/:uuid/complete`.
+- [x] **11.6** Tambah `agent.service.claim(userId)` — resolve `wallet_address` via `resolveUserWalletById`, panggil `claimAllByUserId` (re-use logic dari `participations.service`). Destination tetap wallet user, bukan agent.
+- [x] **11.7** Controller + route: `POST /agent/claim` (agent-only). Response shape sama dengan `POST /me/claim`. Idempotent — aman dipanggil berulang & co-existence dengan claim manual user.
+
+## Phase 14 — Reward Bigint (pool + per-user + distributed)
+
+- [x] **14.1** Migration `supabase/migrations/0008_reward_amount_columns.sql` (drop leaderboard view dulu sebelum alter, lalu recreate):
+  - `quests.reward_amount` → **rename** jadi `quests.reward_per_user` + ubah type ke `bigint` (immutable, per-user reward).
+  - Tambah `quests.total_reward_pool bigint NOT NULL` — total reward tersedia (backfill `= reward_per_user` untuk row existing, lalu set NOT NULL).
+  - Tambah `quests.total_reward_distributed bigint NOT NULL DEFAULT 0`.
+  - Check constraints: `total_reward_pool >= 0`, `total_reward_pool >= reward_per_user`, `total_reward_distributed >= 0`, `total_reward_distributed <= total_reward_pool`.
+  - `quest_participations`: **tidak ditambah** kolom reward — nominal claim direfer dari `quests.reward_per_user` (immutable).
+  - Recreate `leaderboard` view: `total_reward = sum(q.reward_per_user) WHERE status=success AND reward_claimed=true`.
+- [x] **14.2** `quests.schema.ts` — body terima `total_reward_pool` + `reward_per_user` (bigint, di-stringify), plus refine `total_reward_pool >= reward_per_user`. Hapus field `reward_amount`.
+- [x] **14.3** `quests.service.ts` — `QUEST_PUBLIC_COLS` & type `QuestPublic` ganti `reward_amount` → `{ total_reward_pool, reward_per_user, total_reward_distributed }`. `create()` insert kedua field pool & per_user.
+- [x] **14.4** `agent.service.complete` — saat status = `success`: load `{reward_per_user, total_reward_pool, total_reward_distributed}`, pre-check `new <= pool` (else 409 `REWARD_POOL_EXHAUSTED`), lalu bump `total_reward_distributed`. Tidak ada snapshot di participation.
+- [x] **14.5** `participations.service.ts` — `ParticipationItem.quest` expose `{ total_reward_pool, reward_per_user, total_reward_distributed }` (tanpa `reward_amount` di level participation). `claimAllByUserId` source `quests.reward_per_user` langsung sebagai amount transfer.
+- [ ] **14.6** Apply `0008` di Supabase SQL editor; verifikasi:
+  - `quests.reward_per_user` exist (bigint), kolom `reward_amount` sudah TIDAK ada.
+  - `quests.total_reward_pool` exist (bigint NOT NULL).
+  - `quests.total_reward_distributed` exist (bigint NOT NULL DEFAULT 0).
+  - `quest_participations` TIDAK punya kolom `reward_amount`.
+  - View `leaderboard` ada & query `select * from leaderboard limit 1` jalan. _(manual)_
 
 ## Phase 12 — Module: Leaderboard
 
@@ -136,6 +159,7 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
   - [ ] `POST /me/api-key` lagi → key lama otomatis revoked, key lama dipakai → **401**
   - [ ] `GET /me/participations` (Bearer user) → success + `can_claim=true`
   - [ ] `POST /me/claim` → on-chain transfer terjadi, tx_hash claim ada
+  - [ ] `POST /agent/claim` (x-api-key) → reward yang belum di-claim ditransfer ke wallet user (bukan agent); call kedua kalinya `claimed=[]` (idempotent)
   - [ ] `GET /leaderboard` → user muncul dengan `total_reward` & `success_rate`
 - [x] **13.4** (Opsional) Bikin `API.md` ringkas — daftar endpoint + contoh request.
 

@@ -9,7 +9,9 @@ export type QuestPublic = {
   protocol: Protocol;
   quest_type: QuestType;
   action_params: Record<string, unknown>;
-  reward_amount: number | string;
+  total_reward_pool: number | string;
+  reward_per_user: number | string;
+  total_reward_distributed: number | string;
   reward_token: string;
   expires_at: string;
   created_at: string;
@@ -36,7 +38,7 @@ type ProviderRow = { id: number };
 type QuestRow = QuestPublic & { id: number };
 
 const QUEST_PUBLIC_COLS =
-  'uuid, title, description, protocol, quest_type, action_params, reward_amount, reward_token, expires_at, created_at';
+  'uuid, title, description, protocol, quest_type, action_params, total_reward_pool, reward_per_user, total_reward_distributed, reward_token, expires_at, created_at';
 
 const resolveProviderId = async (providerUuid: string): Promise<number> => {
   const { data, error } = await supabase.from('user_providers').select('id').eq('uuid', providerUuid).maybeSingle();
@@ -57,7 +59,8 @@ export const create = async (providerUuid: string, body: CreateQuestBody): Promi
       protocol: body.protocol,
       quest_type: body.quest_type,
       action_params: body.action_params,
-      reward_amount: body.reward_amount,
+      total_reward_pool: body.total_reward_pool,
+      reward_per_user: body.reward_per_user,
       reward_token: body.reward_token,
       expires_at: body.expires_at,
     })

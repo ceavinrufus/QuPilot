@@ -15,3 +15,4 @@ agentRouter.post(
   validate(completeBodySchema),
   controller.complete,
 );
+agentRouter.post('/agent/claim', controller.claim);
