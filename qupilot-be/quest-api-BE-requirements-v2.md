@@ -2,7 +2,7 @@
 
 ## Overview
 
-Platform web3 quest yang menghubungkan tiga jenis aktor: **User Provider** (pembuat quest), **User** (viewer via dashboard — tidak mengeksekusi quest), dan **AI Agent** (satu-satunya yang menjalankan quest secara on-chain). Backend dibangun dengan Express + TypeScript, database Supabase PostgreSQL yang hanya bisa diakses melalui Express menggunakan service role key — tidak ada akses publik via PostgREST.
+Platform web3 quest yang menghubungkan tiga jenis aktor: **User Provider** (pembuat quest), **User** (pemilik wallet), dan **AI Agent** (satu-satunya yang menjalankan quest secara on-chain). Backend dibangun dengan Express + TypeScript, database Supabase PostgreSQL yang hanya bisa diakses melalui Express menggunakan service role key — tidak ada akses publik via PostgREST.
 
 ---
 
@@ -13,8 +13,7 @@ Platform web3 quest yang menghubungkan tiga jenis aktor: **User Provider** (pemb
 | Framework | Express v5 + TypeScript |
 | Database | Supabase PostgreSQL |
 | DB Access | Supabase JS SDK dengan `service_role` key |
-| Auth — User Provider | JWT (username + password), role: `user_provider` |
-| Auth — User | JWT (wallet signature), role: `user` |
+| Auth — User Provider / User | JWT (connect wallet), role: `user_provider` atau `user` |
 | Auth — AI Agent | API key via header `x-api-key` — di-generate oleh user (wallet) dari dashboard, satu key aktif per user, tersimpan sebagai SHA-256 hash + prefix |
 | Validation | Zod (request body & query params) |
 | Deploy | Railway / Fly.io / VPS |
@@ -34,31 +33,18 @@ Setiap tabel memiliki dua jenis identifier:
 
 ---
 
-### Tabel: `user_providers`
-
-Menyimpan akun quest provider (entitas seperti Byreal, Bybit, Sui).
-
-| Column | Type | Keterangan |
-|---|---|---|
-| id | bigint PK auto increment | Internal FK |
-| uuid | uuid UNIQUE default uuidv4 | ID publik untuk UI |
-| username | text UNIQUE | Untuk login |
-| password_hash | text | bcrypt hash |
-| display_name | text | Nama tampil di dashboard |
-| logo_url | text | URL logo provider |
-| created_at | timestamptz | |
-
----
-
 ### Tabel: `users`
 
-Menyimpan akun user berdasarkan wallet address. Tidak ada password — autentikasi via signature. User hanya bisa melihat data di dashboard, tidak bisa mengeksekusi quest.
+Menyimpan akun berbasis wallet address. Tidak ada password — autentikasi via EVM signature (recover address). Satu table ini menyimpan dua role: `user` dan `user_provider`.
 
 | Column | Type | Keterangan |
 |---|---|---|
 | id | bigint PK auto increment | Internal FK |
 | uuid | uuid UNIQUE default uuidv4 | ID publik untuk UI |
-| wallet_address | text UNIQUE | Solana wallet address (public key) |
+| wallet_address | text UNIQUE | EVM address (0x...) |
+| role | text | Enum: `user` / `user_provider` |
+| display_name | text | Nama tampil (khusus provider, nullable) |
+| logo_url | text | URL logo provider (nullable) |
 | created_at | timestamptz | |
 
 ---
@@ -93,7 +79,7 @@ Menyimpan quest yang dibuat oleh user provider. Quest langsung aktif dan publik 
 |---|---|---|
 | id | bigint PK auto increment | Internal FK |
 | uuid | uuid UNIQUE default uuidv4 | ID publik untuk UI dan AI agent |
-| provider_id | bigint FK | → user_providers.id |
+| provider_id | bigint FK | → users.id (row dengan `role='user_provider'`) |
 | title | text | Judul quest |
 | description | text | Deskripsi detail quest |
 | protocol | text | Enum: `byreal`, `bybit`, `sui` |
@@ -102,7 +88,8 @@ Menyimpan quest yang dibuat oleh user provider. Quest langsung aktif dan publik 
 | total_reward_pool | bigint NOT NULL | Total reward (base units, bigint) yang tersedia untuk quest ini. Batas atas akumulasi distribusi. Immutable setelah quest dibuat. |
 | reward_per_user | bigint NOT NULL | Reward (base units) yang diterima setiap user yang berhasil men-complete quest. Immutable setelah quest dibuat. Constraint DB: `total_reward_pool >= reward_per_user`. |
 | total_reward_distributed | bigint NOT NULL DEFAULT 0 | Akumulasi reward yang sudah diberikan ke semua participation `status=success` quest ini. Di-increment server saat agent berhasil complete participation. Hanya kolom inilah di `quests` yang mutable. Constraint DB: `total_reward_distributed <= total_reward_pool`. |
-| reward_token | text | Token reward (mint address atau simbol) |
+| reward_token | text | ERC-20 token address (0x...) |
+| tx_hash | text | Tx hash EVM (0x...) yang dikirim provider saat create quest (required) |
 | expires_at | timestamptz | Quest tidak muncul di listing publik setelah tanggal ini |
 | created_at | timestamptz | |
 
@@ -141,7 +128,7 @@ Semua JWT mengandung field `role` untuk membedakan aktor di middleware.
 |---|---|
 | `sub` | uuid provider |
 | `role` | `user_provider` |
-| `username` | username provider |
+| `wallet_address` | EVM address |
 | `exp` | 7 hari |
 
 **User:**
@@ -149,7 +136,7 @@ Semua JWT mengandung field `role` untuk membedakan aktor di middleware.
 |---|---|
 | `sub` | uuid user |
 | `role` | `user` |
-| `wallet_address` | Solana wallet address |
+| `wallet_address` | EVM address |
 | `exp` | 7 hari |
 
 Middleware auth membaca field `role` untuk menentukan hak akses endpoint — satu middleware dapat mendukung multiple role jika diperlukan.
@@ -160,41 +147,34 @@ Middleware auth membaca field `role` untuk menentukan hak akses endpoint — sat
 
 ---
 
-### 1. Auth — User Provider
-
-**Register**
-- Input: `username`, `password`, `display_name`
-- Password di-hash dengan bcrypt sebelum disimpan
-- Username harus unik — return error 409 jika sudah ada
-- Return: data provider yang baru dibuat (uuid, username, display_name) — tanpa password hash
+### 1. Auth — Wallet (User / Provider)
 
 **Login**
-- Input: `username`, `password`
-- Verifikasi password dengan bcrypt
-- Return: JWT dengan payload role `user_provider`
-- JWT expire: 7 hari
-
----
-
-### 2. Auth — User (Wallet)
-
-**Login / Register**
 - Input: `wallet_address`, `signature`, `message`
-- Flow: user sign sebuah pesan arbitrary di frontend menggunakan wallet mereka, BE memverifikasi bahwa signature tersebut valid untuk wallet address yang diberikan menggunakan `tweetnacl`
-- Jika wallet address belum ada di tabel `users`, otomatis buat akun baru (upsert)
-- Return: JWT dengan payload role `user`
+- Flow: FE minta user sign pesan arbitrary, BE verify signature dengan cara recover address (EVM) dan harus match dengan `wallet_address`.
+
+**Register gate**
+- Jika wallet address belum ada di tabel `users` dan request tidak menyertakan `role` → response `{ registered: false }` (client harus minta user memilih role).
+- Setelah user memilih role, client hit endpoint yang sama dengan tambahan:
+  - `role`: `user` atau `user_provider`
+  - Jika `role=user_provider`: terima juga `display_name` (required) dan `logo_url` (optional)
+- Jika wallet sudah terdaftar, return JWT sesuai role yang tersimpan.
+- Jika client mengirim `role` tapi beda dari role yang sudah tersimpan untuk wallet itu, return 409 `ROLE_MISMATCH`.
+
+**Return**
+- JWT dengan payload sesuai role (`user` atau `user_provider`)
 - JWT expire: 7 hari
 
 ---
 
-### 3. Fitur User Provider
+### 2. Fitur User Provider
 
 Semua endpoint memerlukan JWT dengan role `user_provider`.
 
 **Create Quest**
 - Quest langsung aktif dan publik setelah dibuat — tidak ada tahap draft atau publish
 - Quest tidak bisa diedit dalam kondisi apapun setelah dibuat — enforce di level backend, return 403 jika ada request PUT/PATCH
-- Input wajib: `title`, `description`, `protocol`, `quest_type`, `action_params`, `total_reward_pool`, `reward_per_user`, `reward_token`, `expires_at`
+- Input wajib: `title`, `description`, `protocol`, `quest_type`, `action_params`, `total_reward_pool`, `reward_per_user`, `reward_token`, `tx_hash`, `expires_at`
 - Validasi: `expires_at` harus di masa depan; `total_reward_pool >= reward_per_user` (zod + DB check); kedua nilai reward >= 0
 - `total_reward_distributed` di-set 0 oleh server (tidak di body)
 - Response mengembalikan `uuid` quest sebagai identifier publik
@@ -209,7 +189,7 @@ Semua endpoint memerlukan JWT dengan role `user_provider`.
 
 ---
 
-### 4. Fitur User
+### 3. Fitur User
 
 Semua endpoint memerlukan JWT dengan role `user`. User hanya bisa **melihat data** — tidak bisa join atau execute quest. Seluruh eksekusi dilakukan oleh AI Agent.
 
@@ -250,7 +230,7 @@ Semua endpoint memerlukan JWT dengan role `user`. User hanya bisa **melihat data
 Tidak memerlukan autentikasi apapun.
 
 **Daftar User Provider**
-- Menampilkan semua user provider yang terdaftar
+- Menampilkan semua user provider yang terdaftar (`users.role='user_provider'`)
 - Termasuk field "spotlight" untuk menandai provider yang difeatured di landing page
 
 **Daftar Quest per Provider**
@@ -272,7 +252,7 @@ Tidak memerlukan autentikasi apapun.
   - `success_rate`: persentase quest yang berhasil dari total yang dieksekusi
 - Urutan: `total_reward DESC`, lalu `success_rate DESC` sebagai tiebreaker
 - Limit default: 100 entri teratas
-- Tidak menggunakan materialized view — query langsung ke tabel
+- Implementasi pakai SQL view `public.leaderboard` supaya sorting agregat dilakukan di DB
 
 ---
 
@@ -299,7 +279,7 @@ AI agent mengakses API menggunakan API key via header `x-api-key`. Key di-genera
 **Complete Quest**
 - Mengirimkan `tx_hash` dari transaksi on-chain yang sudah dieksekusi
 - Validasi ownership: participation yang dirujuk harus milik user yang sama dengan owner API key — agent tidak bisa complete participation milik user lain (return 403)
-- Backend **wajib memverifikasi `tx_hash` ke Solana RPC** sebelum mengubah status — tidak bisa langsung percaya input dari agent
+- Backend **wajib memverifikasi `tx_hash` ke EVM RPC** sebelum mengubah status — tidak bisa langsung percaya input dari agent
 - Jika transaksi valid dan sesuai dengan `action_params` quest: update status ke `success`
 - Jika transaksi tidak valid: update status ke `failed`
 - Set `completed_at` ke waktu sekarang
@@ -312,7 +292,7 @@ AI agent mengakses API menggunakan API key via header `x-api-key`. Key di-genera
 **Claim Reward (Agent-triggered)**
 - Endpoint: `POST /agent/claim` (auth via `x-api-key`)
 - Agent boleh men-trigger claim semua reward milik user pemilik API key — `user_id` di-resolve dari API key, tidak perlu di body
-- Sama persis dengan logika `POST /me/claim`: loop semua participation `status=success` & `reward_claimed=false` milik user tersebut, transfer SPL on-chain ke `users.wallet_address`, set `reward_claimed=true`
+- Sama persis dengan logika `POST /me/claim`: loop semua participation `status=success` & `reward_claimed=false` milik user tersebut, transfer ERC-20 on-chain ke `users.wallet_address`, set `reward_claimed=true`
 - Reward selalu masuk ke wallet user — agent tidak pernah jadi destination address
 - Idempotent: aman dipanggil berulang, dan aman kalau user juga manual claim dari dashboard (DB constraint `reward_claimed=true` mencegah double-spend)
 
@@ -326,8 +306,8 @@ AI agent mengakses API menggunakan API key via header `x-api-key`. Key di-genera
 | Tidak ada status quest | Visibilitas quest dikontrol murni oleh `expires_at` — quest expired tidak muncul di listing publik |
 | Eksekusi hanya oleh AI Agent | Hanya AI Agent yang bisa join dan complete quest — endpoint ini tidak bisa diakses dengan JWT user maupun user_provider |
 | User hanya view | User dengan role `user` hanya bisa membaca data partisipasi mereka dan claim reward |
-| Verifikasi tx wajib | Status tidak boleh diubah ke `success` tanpa verifikasi `tx_hash` ke Solana RPC |
-| Upsert wallet login | Wallet baru otomatis didaftarkan saat pertama kali login |
+| Verifikasi tx wajib | Status tidak boleh diubah ke `success` tanpa verifikasi `tx_hash` ke EVM RPC |
+| Register gate wallet | Wallet baru tidak otomatis dibuat tanpa `role`; request pertama tanpa `role` return `{ registered:false }`, lalu client pilih role dan hit ulang |
 | Partisipasi unik | AI Agent tidak bisa membuat dua record `inprogress` untuk kombinasi user + quest yang sama |
 | UUID untuk publik | Semua identifier yang diekspos ke UI dan API response menggunakan `uuid` — bigint `id` tidak pernah diekspos |
 | Foreign key pakai bigint | Semua relasi antar tabel menggunakan kolom `id` bigint, bukan `uuid` |

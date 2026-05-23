@@ -1,6 +1,6 @@
 import { supabase } from '../../config/supabase';
 import { throw404 } from '../../lib/errors';
-import { transferSpl } from '../../lib/solana';
+import { transferErc20 } from '../../lib/evm';
 
 export type ParticipationStatus = 'inprogress' | 'success' | 'failed';
 
@@ -236,7 +236,7 @@ export const claimAllByUserId = async (userId: number, walletAddress: string): P
     // Reward amount comes from quests.reward_per_user — kolom ini immutable
     // setelah quest dibuat, jadi aman dipakai langsung tanpa snapshot.
     try {
-      const tx_hash = await transferSpl(walletAddress, quest.reward_token, quest.reward_per_user);
+      const tx_hash = await transferErc20(walletAddress, quest.reward_token, quest.reward_per_user);
       const updated = await supabase
         .from('quest_participations')
         .update({ reward_claimed: true })
