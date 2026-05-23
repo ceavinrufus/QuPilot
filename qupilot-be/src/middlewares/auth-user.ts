@@ -11,8 +11,8 @@ export const authUser: RequestHandler = (req, _res, next) => {
   const token = header.slice('Bearer '.length).trim();
   try {
     const payload = verifyJwt(token);
-    if (payload.role !== 'user') {
-      return next(new AppError(403, 'FORBIDDEN', 'Requires user role'));
+    if (payload.role !== 'user' && payload.role !== 'user_provider') {
+      return next(new AppError(403, 'FORBIDDEN', 'Requires wallet role'));
     }
     req.auth = payload;
     next();

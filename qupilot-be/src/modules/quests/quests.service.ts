@@ -21,7 +21,7 @@ export type QuestListItem = QuestPublic & { participation_count: number };
 
 export type ProviderSummary = {
   uuid: string;
-  display_name: string;
+  display_name: string | null;
   logo_url: string | null;
 };
 
@@ -41,7 +41,12 @@ const QUEST_PUBLIC_COLS =
   'uuid, title, description, protocol, quest_type, action_params, total_reward_pool, reward_per_user, total_reward_distributed, reward_token, expires_at, created_at';
 
 const resolveProviderId = async (providerUuid: string): Promise<number> => {
-  const { data, error } = await supabase.from('user_providers').select('id').eq('uuid', providerUuid).maybeSingle();
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('uuid', providerUuid)
+    .eq('role', 'user_provider')
+    .maybeSingle();
   if (error) throw error;
   if (!data) throw404('PROVIDER_NOT_FOUND', 'Provider not found');
   return (data as ProviderRow).id;
@@ -143,7 +148,7 @@ export const listPublic = async (query: ListPublicQuery): Promise<PublicQuestLis
   let q = supabase
     .from('quests')
     .select(
-      `${QUEST_PUBLIC_COLS}, user_providers(uuid, display_name, logo_url), quest_participations(count)`,
+      `${QUEST_PUBLIC_COLS}, users(uuid, display_name, logo_url), quest_participations(count)`,
     )
     .gt('expires_at', nowIso())
     .order('created_at', { ascending: false });
@@ -156,14 +161,14 @@ export const listPublic = async (query: ListPublicQuery): Promise<PublicQuestLis
 
   const rows = (data ?? []) as Array<
     QuestPublic & {
-      user_providers: ProviderSummary | ProviderSummary[] | null;
+      users: ProviderSummary | ProviderSummary[] | null;
       quest_participations?: Array<{ count: number }>;
     }
   >;
 
   return rows.map((row) => ({
     ...row,
-    provider: Array.isArray(row.user_providers) ? row.user_providers[0] ?? null : row.user_providers,
+    provider: Array.isArray(row.users) ? row.users[0] ?? null : row.users,
     participation_count: row.quest_participations?.[0]?.count ?? 0,
   }));
 };
@@ -174,7 +179,7 @@ export const listPublicByProvider = async (providerUuid: string): Promise<Public
   const { data, error } = await supabase
     .from('quests')
     .select(
-      `${QUEST_PUBLIC_COLS}, user_providers(uuid, display_name, logo_url), quest_participations(count)`,
+      `${QUEST_PUBLIC_COLS}, users(uuid, display_name, logo_url), quest_participations(count)`,
     )
     .eq('provider_id', provider_id)
     .gt('expires_at', nowIso())
@@ -184,14 +189,14 @@ export const listPublicByProvider = async (providerUuid: string): Promise<Public
 
   const rows = (data ?? []) as Array<
     QuestPublic & {
-      user_providers: ProviderSummary | ProviderSummary[] | null;
+      users: ProviderSummary | ProviderSummary[] | null;
       quest_participations?: Array<{ count: number }>;
     }
   >;
 
   return rows.map((row) => ({
     ...row,
-    provider: Array.isArray(row.user_providers) ? row.user_providers[0] ?? null : row.user_providers,
+    provider: Array.isArray(row.users) ? row.users[0] ?? null : row.users,
     participation_count: row.quest_participations?.[0]?.count ?? 0,
   }));
 };
@@ -200,7 +205,7 @@ export const getPublicDetail = async (questUuid: string): Promise<{ quest: Publi
   const { data, error } = await supabase
     .from('quests')
     .select(
-      `${QUEST_PUBLIC_COLS}, user_providers(uuid, display_name, logo_url), quest_participations(count)`,
+      `${QUEST_PUBLIC_COLS}, users(uuid, display_name, logo_url), quest_participations(count)`,
     )
     .eq('uuid', questUuid)
     .gt('expires_at', nowIso())
@@ -210,13 +215,13 @@ export const getPublicDetail = async (questUuid: string): Promise<{ quest: Publi
   if (!data) throw404('QUEST_NOT_FOUND', 'Quest not found');
 
   const row = data as unknown as QuestPublic & {
-    user_providers: ProviderSummary | ProviderSummary[] | null;
+    users: ProviderSummary | ProviderSummary[] | null;
     quest_participations?: Array<{ count: number }>;
   };
 
   const quest: PublicQuestListItem = {
     ...row,
-    provider: Array.isArray(row.user_providers) ? row.user_providers[0] ?? null : row.user_providers,
+    provider: Array.isArray(row.users) ? row.users[0] ?? null : row.users,
     participation_count: row.quest_participations?.[0]?.count ?? 0,
   };
 

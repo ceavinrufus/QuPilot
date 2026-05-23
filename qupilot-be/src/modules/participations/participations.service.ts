@@ -25,7 +25,7 @@ export type ParticipationItem = {
     created_at: string;
     provider: {
       uuid: string;
-      display_name: string;
+      display_name: string | null;
       logo_url: string | null;
     } | null;
   };
@@ -48,8 +48,11 @@ const resolveUserId = async (userUuid: string): Promise<number> => {
 };
 
 const toProvider = (
-  user_providers: { uuid: string; display_name: string; logo_url: string | null } | { uuid: string; display_name: string; logo_url: string | null }[] | null,
-) => (Array.isArray(user_providers) ? user_providers[0] ?? null : user_providers);
+  users:
+    | { uuid: string; display_name: string | null; logo_url: string | null }
+    | { uuid: string; display_name: string | null; logo_url: string | null }[]
+    | null,
+) => (Array.isArray(users) ? users[0] ?? null : users);
 
 type QuestEmbed = {
   uuid: string;
@@ -63,9 +66,9 @@ type QuestEmbed = {
   reward_token: string;
   expires_at: string;
   created_at: string;
-  user_providers:
-    | { uuid: string; display_name: string; logo_url: string | null }
-    | { uuid: string; display_name: string; logo_url: string | null }[]
+  users:
+    | { uuid: string; display_name: string | null; logo_url: string | null }
+    | { uuid: string; display_name: string | null; logo_url: string | null }[]
     | null;
 };
 
@@ -78,7 +81,7 @@ export const listByUser = async (userUuid: string): Promise<ParticipationItem[]>
   const { data, error } = await supabase
     .from('quest_participations')
     .select(
-      'uuid, status, tx_hash, reward_claimed, started_at, completed_at, quests(uuid, title, description, protocol, quest_type, total_reward_pool, reward_per_user, total_reward_distributed, reward_token, expires_at, created_at, user_providers(uuid, display_name, logo_url))',
+      'uuid, status, tx_hash, reward_claimed, started_at, completed_at, quests(uuid, title, description, protocol, quest_type, total_reward_pool, reward_per_user, total_reward_distributed, reward_token, expires_at, created_at, users(uuid, display_name, logo_url))',
     )
     .eq('user_id', user_id)
     .order('started_at', { ascending: false });
@@ -119,7 +122,7 @@ export const listByUser = async (userUuid: string): Promise<ParticipationItem[]>
           reward_token: q.reward_token,
           expires_at: q.expires_at,
           created_at: q.created_at,
-          provider: toProvider(q.user_providers),
+          provider: toProvider(q.users),
         },
       };
     });
@@ -131,7 +134,7 @@ export const getDetailForUser = async (userUuid: string, questUuid: string): Pro
   const { data, error } = await supabase
     .from('quest_participations')
     .select(
-      'uuid, status, tx_hash, reward_claimed, started_at, completed_at, quests(uuid, title, description, protocol, quest_type, total_reward_pool, reward_per_user, total_reward_distributed, reward_token, expires_at, created_at, user_providers(uuid, display_name, logo_url))',
+      'uuid, status, tx_hash, reward_claimed, started_at, completed_at, quests(uuid, title, description, protocol, quest_type, total_reward_pool, reward_per_user, total_reward_distributed, reward_token, expires_at, created_at, users(uuid, display_name, logo_url))',
     )
     .eq('user_id', user_id)
     .eq('quests.uuid', questUuid)
@@ -174,7 +177,7 @@ export const getDetailForUser = async (userUuid: string, questUuid: string): Pro
       reward_token: q.reward_token,
       expires_at: q.expires_at,
       created_at: q.created_at,
-      provider: toProvider(q.user_providers),
+      provider: toProvider(q.users),
     },
   };
 
