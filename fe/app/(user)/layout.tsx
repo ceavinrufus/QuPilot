@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@heroui/react";
 import {
   FaWallet,
@@ -13,6 +13,8 @@ import {
   FaRocket,
 } from "react-icons/fa6";
 import { FiLayout, FiUser, FiAward, FiCompass } from "react-icons/fi";
+import { getUserData, getAuthToken, clearAuth } from "@/lib/utils/auth";
+import type { IUser } from "@/lib/types/auth";
 
 export default function UserLayout({
   children,
@@ -20,20 +22,35 @@ export default function UserLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const router = useRouter();
+  const [user, setUser] = useState<IUser | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const handleConnectWallet = () => {
-    setIsConnecting(true);
-    setTimeout(() => {
-      setIsConnecting(false);
-      setWalletAddress("0x7a83B...34d8");
-    }, 800);
-  };
+  // Load user data on mount
+  useEffect(() => {
+    const stored = getUserData();
+    const token = getAuthToken();
+    if (stored && token) {
+      setUser(stored);
+    }
+  }, []);
 
-  const handleDisconnectWallet = () => {
-    setWalletAddress(null);
-  };
+  // Format wallet address for display
+  const shortWallet = user?.wallet_address
+    ? `${user.wallet_address.slice(0, 4)}…${user.wallet_address.slice(-4)}`
+    : null;
+
+  const handleConnectWallet = useCallback(() => {
+    setIsConnecting(true);
+    // Redirect to home page with login query parameter to trigger the modal
+    router.push("/?login=true");
+  }, [router]);
+
+  const handleDisconnectWallet = useCallback(() => {
+    clearAuth();
+    setUser(null);
+    router.push("/");
+  }, [router]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#fffbf5] font-sans antialiased text-[#1f1b18]">
@@ -107,19 +124,11 @@ export default function UserLayout({
 
           {/* Actions */}
           <div className="flex items-center gap-4">
-            <Link
-              href="/register-provider"
-              className="text-xs font-bold text-[#6b6560] hover:text-[#a63420] transition-colors flex items-center gap-1"
-            >
-              <FaUserPlus size={14} />
-              <span className="hidden sm:inline">Register as Provider</span>
-            </Link>
-
-            {walletAddress ? (
+            {user ? (
               <div className="flex items-center gap-2">
                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#fff8f6] border border-[#f5ddd9] rounded-full text-xs font-mono text-[#a63420] font-bold hover:shadow-sm transition-all">
                   <FaCircle size={8} className="text-[#008282] animate-pulse" />
-                  {walletAddress}
+                  {shortWallet}
                 </div>
                 <button
                   onClick={handleDisconnectWallet}
@@ -136,14 +145,14 @@ export default function UserLayout({
                 className="bg-[#a63420] text-white hover:bg-[#8f2b1a] transition-all text-xs font-bold px-5 py-2.5 rounded-full shadow-sm flex items-center gap-2"
               >
                 <FaWallet size={14} />
-                {isConnecting ? "Connecting..." : "Connect Wallet"}
+                {isConnecting ? "Connecting…" : "Connect Wallet"}
               </Button>
             )}
           </div>
         </div>
       </header>
 
-      {/* Content wrapper */}
+      {/* Content */}
       <main className="grow max-w-7xl w-full mx-auto px-6 py-12">
         {children}
       </main>
@@ -153,7 +162,7 @@ export default function UserLayout({
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <span className="font-extrabold text-[#a63420] text-lg">Pilot</span>
-            <span>© 2024 Pilot Web3 Quests. Explore the stars.</span>
+            <span>© 2026 QuPilot Web3 Quests. Explore the stars.</span>
           </div>
 
           <div className="flex items-center gap-6">

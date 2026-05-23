@@ -8,10 +8,6 @@ The goal is not to maximize raw code output. The goal is to leave the repo in a 
 
 ```
 app/
-├── (auth)/
-│   ├── login/page.tsx              # Provider login (User ID + Password)
-│   └── layout.tsx                  # Centered auth layout
-│
 ├── (provider)/
 │   ├── dashboard/page.tsx          # Provider quest list (title + agent count)
 │   ├── quests/new/page.tsx         # Create new quest (title, description, reward)
@@ -26,9 +22,11 @@ app/
 │   ├── leaderboard/page.tsx        # Ranked by reward + success rate
 │   └── layout.tsx                  # User layout (header: My Profile, Leaderboard, wallet)
 │
-├── register-provider/page.tsx       # Register new provider
+├── components/
+│   └── AuthModal.tsx               # Unified wallet login/register modal
 │
 └── page.tsx                        # Landing page (unauthenticated) — list providers + quests
+
 ```
 
 ## Startup Workflow
@@ -62,6 +60,8 @@ Each route group has its own `layout.tsx`:
 - For UI components: tailwind classes must match project conventions, import from `@/lib/...` or `@/components/...`.
 - Always read the docs before planning, you can use `context7` or other MCP tools
 - Prioritise utilise components from @heroui instead of use HTML component, unless there's none that match.
+- If you wanna access the value from .env consider create the variable in `config.ts` then access it from that variable. It's forbidden to access it directly from .env.
+- Always use zod to validate inputs
 
 ## Code Conventions (Non-negotiable)
 - **Naming**:
@@ -75,7 +75,8 @@ Each route group has its own `layout.tsx`:
 
 ## API Services
 
-One service folder per module (`src/service/quests/api.ts`, `src/service/auth/api.ts`, etc.). Each exports functions that call `apiClient`.
+- One service folder per module (`src/service/quests/api.ts`, `src/service/auth/api.ts`, etc.). Each exports functions that call `apiClient`.
+- Response and request interface should be composed per module e.g `src/interface/responses/quests` is for `src/service/quests/api.ts`.
 
 ## TanStack Query Hooks
 

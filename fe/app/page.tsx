@@ -1,12 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Button, Card, ProgressBar } from "@heroui/react";
-import { FaRocket, FaCoins, FaDiscord, FaXTwitter, FaComments, FaBolt } from "react-icons/fa6";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Button, Card, ProgressBar, toast } from "@heroui/react";
+import { FaRocket, FaCoins, FaDiscord, FaXTwitter, FaComments, FaBolt, FaWallet } from "react-icons/fa6";
 import { FiUsers, FiTrendingUp, FiX, FiCpu } from "react-icons/fi";
 import { SiSui } from "react-icons/si";
+import { getUserData, clearAuth } from "@/lib/utils/auth";
+import { disconnectWallet } from "@/lib/utils/wallet";
+import AuthModal from "./components/AuthModal";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -236,19 +240,47 @@ function ProviderSection({
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
-export default function Home() {
+function LandingPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // Populate user data from storage on mount
+  useEffect(() => {
+    const user = getUserData();
+    if (user) {
+      setWalletAddress(user.wallet_address);
+    }
+  }, []);
+
+  // Handle URL redirect query parameter ?login=true
+  useEffect(() => {
+    if (searchParams.get("login") === "true") {
+      setIsAuthModalOpen(true);
+      // Clean query parameters from address bar
+      router.replace("/", { scroll: false });
+    }
+  }, [searchParams, router]);
 
   const handleConnectWallet = () => {
-    setIsConnecting(true);
-    setTimeout(() => {
-      setIsConnecting(false);
-      setWalletAddress("0x7a83B...34d8");
-    }, 800);
+    setIsAuthModalOpen(true);
   };
 
-  const handleDisconnectWallet = () => setWalletAddress(null);
+  const handleDisconnectWallet = () => {
+    clearAuth();
+    disconnectWallet();
+    setWalletAddress(null);
+    toast.success("Disconnected wallet.");
+  };
+
+  const handleAuthSuccess = () => {
+    const user = getUserData();
+    if (user) {
+      setWalletAddress(user.wallet_address);
+    }
+  };
 
   return (
     <div
@@ -285,37 +317,8 @@ export default function Home() {
             </span>
           </Link>
 
-          {/* Nav links */}
-          <nav className="flex items-center gap-1">
-            {["Leaderboard", "My Profile", "Dashboard"].map((item) => (
-              <Link
-                key={item}
-                href={`/${item.toLowerCase().replace(" ", "-")}`}
-                className="px-3 py-2 rounded-xl text-xs font-bold tracking-widest uppercase transition-colors hover:bg-black/5"
-                style={{ color: "#6B6560" }}
-              >
-                {item}
-              </Link>
-            ))}
-          </nav>
-
           {/* CTA buttons */}
           <div className="flex items-center gap-3">
-            <Button
-              render={(props) => <Link href="/register-provider" {...(props as any)} />}
-              id="nav-register-provider"
-              className="px-5 py-2 rounded-full text-xs font-bold tracking-widest uppercase border transition-all hover:bg-black/5"
-              style={{
-                background: "#F8F4EF",
-                borderColor: "#DFBFB9",
-                color: "#1F1B18",
-                height: "auto",
-                minWidth: "auto",
-              }}
-            >
-              Register as Provider
-            </Button>
-
             {walletAddress ? (
               <div className="flex items-center gap-2">
                 <div
@@ -326,7 +329,7 @@ export default function Home() {
                     className="w-2 h-2 rounded-full animate-pulse"
                     style={{ background: "#10B981" }}
                   />
-                  {walletAddress}
+                  {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
                 </div>
                 <Button
                   isIconOnly
@@ -340,19 +343,11 @@ export default function Home() {
             ) : (
               <Button
                 onPress={handleConnectWallet}
-                isDisabled={isConnecting}
                 id="nav-connect-wallet"
-                className="flex items-center gap-1 px-5 py-2 rounded-full text-xs font-bold tracking-widest uppercase transition-all disabled:opacity-60"
-                style={{
-                  background: "#A63420",
-                  color: "#FFFFFF",
-                  boxShadow:
-                    "0px 6px 12px 0px rgba(166,52,32,0.3), 0px 4px 0px 0px rgba(137,30,12,1)",
-                  height: "auto",
-                  minWidth: "auto",
-                }}
+                className="bg-[#a63420] text-white hover:bg-[#8f2b1a] transition-all text-xs font-bold px-5 py-2.5 rounded-full shadow-sm flex items-center gap-2"
               >
-                {isConnecting ? "Connecting..." : "Connect Wallet"}
+                <FaWallet size={14} />
+                Connect Wallet
               </Button>
             )}
           </div>
@@ -688,6 +683,20 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onOpenChange={setIsAuthModalOpen}
+        onSuccess={handleAuthSuccess}
+      />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#FFFBF5] text-[#A63420] font-bold">Loading...</div>}>
+      <LandingPageContent />
+    </Suspense>
   );
 }

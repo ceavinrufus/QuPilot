@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import AuthGate from "@/app/components/AuthGate";
+import { getUserData } from "@/lib/utils/auth";
+import type { IUser } from "@/lib/types/auth";
 import { Button, Card, Avatar, Badge, Chip, ProgressBar, Tabs } from "@heroui/react";
 import {
   FaUserAstronaut,
@@ -47,7 +50,13 @@ const COMPLETED_QUESTS = [
 export default function UserProfilePage() {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("active");
-  const walletAddress = "0x71C2473A7FD9899B34D8E2221973E888358E299C";
+  const [user, setUser] = useState<IUser | null>(null);
+
+  useEffect(() => {
+    setUser(getUserData());
+  }, []);
+
+  const walletAddress = user?.wallet_address || "0x0000000000000000000000000000000000000000";
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(walletAddress);
@@ -57,7 +66,8 @@ export default function UserProfilePage() {
 
   const newLocal = "rounded-xl border border-[#dfbfb94d] bg-white p-8 shadow-sm transition-all duration-300 hover:shadow-md";
   return (
-    <div className="flex flex-col gap-8 max-w-7xl mx-auto py-6 px-4 md:px-6">
+    <AuthGate allowedRoles={["user"]}>
+      <div className="flex flex-col gap-8 max-w-7xl mx-auto py-6 px-4 md:px-6">
       {/* 1. Header Profile Card */}
       <Card className={newLocal}>
         <div className="flex flex-col md:flex-row items-center md:items-start gap-8 justify-between">
@@ -67,8 +77,8 @@ export default function UserProfilePage() {
               <Badge.Anchor>
                 <Avatar className="w-32 h-32 rounded-full border-4 border-white shadow-lg bg-[#fff8f6]">
                   <Avatar.Image 
-                    src="https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=250" 
-                    alt="AstroExplorer99" 
+                    src={user?.logo_url || "https://images.unsplash.com/photo-1620121692029-d088224ddc74?w=250"} 
+                    alt={user?.display_name || "AstroExplorer"} 
                   />
                   <Avatar.Fallback className="bg-secondary-light">
                     <FaUserAstronaut className="text-secondary text-5xl" />
@@ -88,7 +98,7 @@ export default function UserProfilePage() {
             <div className="flex flex-col gap-3 w-full flex-1 min-w-0">
               <div>
                 <h1 className="text-3xl font-extrabold text-[#1f1b18] tracking-tight font-display mb-1">
-                  AstroExplorer99
+                  {user?.display_name || "AstroExplorer"}
                 </h1>
                 <p className="text-sm text-[#6b6560] font-sans">
                   Web3 Space Pilot Cadet • Active since May 2026
@@ -507,5 +517,6 @@ export default function UserProfilePage() {
         
       </div>
     </div>
+    </AuthGate>
   );
 }
