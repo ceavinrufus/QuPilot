@@ -6,7 +6,7 @@ let treasuryWallet: Wallet | null = null;
 
 export const getEvmProvider = (): JsonRpcProvider => {
   if (!provider) {
-    provider = new JsonRpcProvider(env.EVM_RPC_URL);
+    provider = new JsonRpcProvider(env.EVM_RPC_URL, env.CHAIN_ID);
   }
   return provider;
 };

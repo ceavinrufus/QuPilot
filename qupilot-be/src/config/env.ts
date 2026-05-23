@@ -16,6 +16,7 @@ const envSchema = z.object({
     .trim()
     .regex(/^(0x)?[a-fA-F0-9]{64}$/, 'TREASURY_PRIVATE_KEY must be a 32-byte hex string (64 chars), optional 0x')
     .transform((v) => (v.startsWith('0x') ? v : `0x${v}`)),
+  CHAIN_ID: z.coerce.number().int().positive(), // Sepolia
 });
 
 const parsed = envSchema.safeParse(process.env);
