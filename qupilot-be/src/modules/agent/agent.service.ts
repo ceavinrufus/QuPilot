@@ -27,6 +27,25 @@ export const join = async (
     throw new AppError(400, 'QUEST_EXPIRED', 'Quest has expired');
   }
 
+  // Pre-check to return a precise error code.
+  // Race-condition safety is provided by the partial unique indexes in DB
+  // (see migrations 0004 + 0012), which raise SQLSTATE 23505 on conflict.
+  const existing = await supabase
+    .from('quest_participations')
+    .select('status')
+    .eq('user_id', userId)
+    .eq('quest_id', quest.id)
+    .in('status', ['inprogress', 'success']);
+
+  if (existing.error) throw existing.error;
+  if (existing.data && existing.data.length > 0) {
+    const statuses = new Set(existing.data.map((r) => (r as { status: string }).status));
+    if (statuses.has('success')) {
+      throw new AppError(409, 'PARTICIPATION_ALREADY_COMPLETED', 'Quest already completed by this user');
+    }
+    throw new AppError(409, 'PARTICIPATION_INPROGRESS_EXISTS', 'Participation already in progress for this quest');
+  }
+
   const inserted = await supabase
     .from('quest_participations')
     .insert({
@@ -38,7 +57,21 @@ export const join = async (
     .single();
 
   if (inserted.error) {
+    // Fallback: a concurrent insert won the race between pre-check and insert.
+    // We can't tell inprogress vs success from the error alone, so re-query.
     if (inserted.error.code === '23505') {
+      const recheck = await supabase
+        .from('quest_participations')
+        .select('status')
+        .eq('user_id', userId)
+        .eq('quest_id', quest.id)
+        .in('status', ['inprogress', 'success']);
+      const hasSuccess = (recheck.data ?? []).some(
+        (r) => (r as { status: string }).status === 'success',
+      );
+      if (hasSuccess) {
+        throw new AppError(409, 'PARTICIPATION_ALREADY_COMPLETED', 'Quest already completed by this user');
+      }
       throw new AppError(409, 'PARTICIPATION_INPROGRESS_EXISTS', 'Participation already in progress for this quest');
     }
     throw inserted.error;
