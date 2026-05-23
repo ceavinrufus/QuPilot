@@ -84,7 +84,7 @@ Menyimpan quest yang dibuat oleh user provider. Quest langsung aktif dan publik 
 | description | text | Deskripsi detail quest |
 | protocol | text | Enum: `byreal`, `bybit`, `sui` |
 | quest_type | text | Enum: `swap`, `lp`, `stake` |
-| action_params | jsonb | Parameter siap pakai untuk eksekusi on-chain oleh AI agent |
+| action_params | jsonb (array of objects) | Parameter siap pakai untuk eksekusi on-chain oleh AI agent. Selalu JSON **array** berisi satu atau lebih step (object). Constraint DB (`0011`) enforce `jsonb_typeof = 'array'`. |
 | total_reward_pool | bigint NOT NULL | Total reward (base units, bigint) yang tersedia untuk quest ini. Batas atas akumulasi distribusi. Immutable setelah quest dibuat. |
 | reward_per_user | bigint NOT NULL | Reward (base units) yang diterima setiap user yang berhasil men-complete quest. Immutable setelah quest dibuat. Constraint DB: `total_reward_pool >= reward_per_user`. |
 | total_reward_distributed | bigint NOT NULL DEFAULT 0 | Akumulasi reward yang sudah diberikan ke semua participation `status=success` quest ini. Di-increment server saat agent berhasil complete participation. Hanya kolom inilah di `quests` yang mutable. Constraint DB: `total_reward_distributed <= total_reward_pool`. |
@@ -93,7 +93,7 @@ Menyimpan quest yang dibuat oleh user provider. Quest langsung aktif dan publik 
 | expires_at | timestamptz | Quest tidak muncul di listing publik setelah tanggal ini |
 | created_at | timestamptz | |
 
-**Catatan `action_params`:** Field ini berisi parameter spesifik per `quest_type` yang langsung bisa dikonsumsi AI agent tanpa perlu parsing tambahan. Contoh untuk tipe `swap`: input token, output token, minimum amount.
+**Catatan `action_params`:** Field ini adalah **JSON array** berisi satu atau lebih step yang langsung bisa dikonsumsi AI agent tanpa perlu parsing tambahan. Setiap elemen berbentuk object dengan key bebas, tetapi konvensinya cocok dengan `quest_type` quest (mis. `swap` → `[{input, output, minOut}]`, `lp` → `[{pair, amountA, amountB}]`). Zod schema: `z.array(z.record(z.string(), z.unknown())).min(1)` — server menolak object tunggal, array kosong, atau null.
 
 **Tidak ada kolom `status`:** Quest selalu publik sejak dibuat. Visibilitas di listing publik dikontrol murni oleh `expires_at`.
 

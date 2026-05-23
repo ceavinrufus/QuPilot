@@ -137,7 +137,7 @@ Body:
   "description": "Lakukan swap ...",
   "protocol": "byreal",
   "quest_type": "swap",
-  "action_params": { "any": "json" },
+  "action_params": [{ "step": 1, "any": "json" }],
   "total_reward_pool": "10000000",
   "reward_per_user": "1000000",
   "reward_token": "0xTokenAddress",
@@ -145,6 +145,7 @@ Body:
 }
 ```
 
+- `action_params`: **JSON array** (jsonb di DB) berisi satu atau lebih step yang akan dieksekusi AI agent. Minimal 1 elemen, setiap elemen berbentuk object bebas. Server menolak object tunggal / null / array kosong.
 - `total_reward_pool`: total reward (bigint) yang tersedia untuk quest ini — batas atas akumulasi distribusi.
 - `reward_per_user`: reward (bigint) yang diterima setiap user yang berhasil men-complete quest.
 - `reward_token`: address kontrak ERC-20 (0x...) yang dikirim dari treasury ke user saat claim.
@@ -161,7 +162,7 @@ Body:
     "description": "...",
     "protocol": "byreal",
     "quest_type": "swap",
-    "action_params": {},
+    "action_params": [{ "step": 1 }],
     "total_reward_pool": "10000000",
     "reward_per_user": "1000000",
     "total_reward_distributed": "0",
@@ -187,7 +188,7 @@ Auth: Wallet JWT dengan role=user_provider
       "description": "...",
       "protocol": "byreal",
       "quest_type": "swap",
-      "action_params": {},
+      "action_params": [{ "step": 1 }],
       "total_reward_pool": "10000000",
       "reward_per_user": "1000000",
       "total_reward_distributed": "5000000",
@@ -216,7 +217,7 @@ Auth: Wallet JWT dengan role=user_provider
     "description": "...",
     "protocol": "byreal",
     "quest_type": "swap",
-    "action_params": {},
+    "action_params": [{ "step": 1 }],
     "total_reward_pool": "10000000",
     "reward_per_user": "1000000",
     "total_reward_distributed": "5000000",
@@ -258,7 +259,7 @@ Query:
       "description": "...",
       "protocol": "byreal",
       "quest_type": "swap",
-      "action_params": {},
+      "action_params": [{ "step": 1 }],
       "total_reward_pool": "10000000",
       "reward_per_user": "1000000",
       "total_reward_distributed": "5000000",
@@ -290,7 +291,7 @@ Public.
     "description": "...",
     "protocol": "byreal",
     "quest_type": "swap",
-    "action_params": {},
+    "action_params": [{ "step": 1 }],
     "total_reward_pool": "10000000",
     "reward_per_user": "1000000",
     "total_reward_distributed": "5000000",

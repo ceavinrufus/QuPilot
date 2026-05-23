@@ -167,6 +167,19 @@ User yang sudah login wallet bisa generate / revoke API key untuk dipakai AI Age
   - [ ] `GET /leaderboard` → user muncul dengan `total_reward` & `success_rate`
 - [x] **13.4** (Opsional) Bikin `API.md` ringkas — daftar endpoint + contoh request.
 
+## Phase 15 — action_params: array of objects
+
+- [x] **15.1** Migration `supabase/migrations/0011_quest_action_params_array.sql`:
+  - Backfill: row existing yang masih object di-wrap ke array satu elemen (`jsonb_build_array(action_params)`); row null / sudah array di-skip → idempotent.
+  - Add `CHECK (action_params is null or jsonb_typeof(action_params) = 'array')`.
+- [x] **15.2** `quests.schema.ts` — `action_params: z.array(z.record(z.string(), z.unknown())).min(1)`. Tolak object tunggal & array kosong.
+- [x] **15.3** `quests.service.ts` — type `QuestPublic.action_params: Array<Record<string, unknown>>`. Insert lewat tanpa modifikasi karena body sudah berbentuk array setelah lewat schema.
+- [x] **15.4** Update `API.md` & spec — semua sample `action_params` jadi array, plus catatan validasi.
+- [ ] **15.5** Apply `0011` di Supabase SQL editor; verifikasi:
+  - Row lama tidak ada lagi yang `jsonb_typeof != 'array'` (query: `select count(*) from quests where jsonb_typeof(action_params) <> 'array';` → 0).
+  - Insert quest baru dengan body `action_params = {}` (object) → ditolak 400 oleh zod.
+  - Insert quest baru dengan `action_params = [{...}]` → sukses. _(manual)_
+
 ---
 
 ## Cara Tandai Progress
