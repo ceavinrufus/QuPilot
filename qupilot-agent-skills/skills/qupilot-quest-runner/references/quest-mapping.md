@@ -1,6 +1,6 @@
 # Quest → byreal CLI Mapping
 
-Use this table when dispatching a claimed quest. Each row shows a quest `action` payload and the exact byreal CLI command(s) that satisfy it. Always run the CLI with `-o json` so the output stays parseable, and capture the field listed under "proof" to send back to `POST /quests/{id}/complete`.
+Use this table when dispatching a claimed quest. Each row shows a quest `action` payload and the exact byreal CLI command(s) that satisfy it. Always run the CLI with `-o json` so the output stays parseable, and capture the field listed under "proof" to send back to `POST /agent/participations/:participation_uuid/complete`.
 
 If a quest's `action.kind` isn't covered here, **stop and surface the kind to the user** rather than guessing. Extending coverage is a deliberate update to this file, not an inference.
 
@@ -32,6 +32,14 @@ byreal-cli swap execute --from SOL --to USDC --amount <calc> --slippage-bps 50 -
 
 **Proof to send back:** `tx_hash` (from `data.tx_hash` in the JSON response).
 
+**Complete curl:**
+```bash
+curl -sS -X POST -H "x-api-key: $QUPILOT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "tx_hash": "<tx_hash>" }' \
+  "$QUPILOT_API_URL/agent/participations/<participation_uuid>/complete"
+```
+
 ---
 
 ## 2. `provide-liquidity` — open a CLMM position
@@ -58,7 +66,15 @@ byreal-cli swap execute --from SOL --to USDC --amount <calc> --slippage-bps 50 -
 byreal-cli position open --pool <pool_id> --notional-usd 100 --range-pct 5 -o json
 ```
 
-**Proof to send back:** `tx_hash` and `position_id`.
+**Proof to send back:** `tx_hash` (from `data.tx_hash` in the JSON response).
+
+**Complete curl:**
+```bash
+curl -sS -X POST -H "x-api-key: $QUPILOT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "tx_hash": "<tx_hash>" }' \
+  "$QUPILOT_API_URL/agent/participations/<participation_uuid>/complete"
+```
 
 ---
 
@@ -90,7 +106,15 @@ byreal-perps-cli order market buy 0.01 BTC -o json
 ```
 (For `side: short`, use `sell` instead of `buy`.)
 
-**Proof to send back:** `order_id` (or `tx_hash` if the CLI returns one).
+**Proof to send back:** Use the Hyperliquid `order_id` as the `tx_hash` value — the backend stores this in the `tx_hash` field. Pass it as `{ "tx_hash": "<order_id>" }`.
+
+**Complete curl:**
+```bash
+curl -sS -X POST -H "x-api-key: $QUPILOT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "tx_hash": "<order_id>" }' \
+  "$QUPILOT_API_URL/agent/participations/<participation_uuid>/complete"
+```
 
 ---
 
@@ -101,14 +125,22 @@ byreal-perps-cli order market buy 0.01 BTC -o json
 { "kind": "close-position", "params": { "coin": "BTC" } }
 ```
 
-**Pre-flight:** `byreal-perps-cli position list -o json` — confirm a non-zero position in `coin` exists, otherwise abandon the quest with `QUEST_PRECONDITION_FAILED`.
+**Pre-flight:** `byreal-perps-cli position list -o json` — confirm a non-zero position in `coin` exists, otherwise submit `complete` with the failed tx anyway (the backend will mark the participation as `failed`).
 
 **Execute:**
 ```bash
 byreal-perps-cli position close-market BTC -o json
 ```
 
-**Proof to send back:** `order_id`.
+**Proof to send back:** Use the Hyperliquid `order_id` as the `tx_hash` value — the backend stores this in the `tx_hash` field. Pass it as `{ "tx_hash": "<order_id>" }`.
+
+**Complete curl:**
+```bash
+curl -sS -X POST -H "x-api-key: $QUPILOT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "tx_hash": "<order_id>" }' \
+  "$QUPILOT_API_URL/agent/participations/<participation_uuid>/complete"
+```
 
 ---
 
@@ -123,9 +155,17 @@ This quest doesn't require sending a new transaction — it requires *not* closi
 
 1. Verify the position exists now: `byreal-perps-cli position list -o json`.
 2. Note `opened_at` from the position metadata (or use claim time as a fallback).
-3. Don't poll the QuPilot API in a tight loop — let the user resume the session after the hold window; on resume, re-check the position is still open and *then* call `POST /complete` with the original position's `order_id`.
+3. Don't poll the QuPilot API in a tight loop — let the user resume the session after the hold window; on resume, re-check the position is still open and *then* call complete with the original position's `order_id` as `tx_hash`.
 
-**Proof to send back:** `order_id` of the held position.
+**Proof to send back:** Use the Hyperliquid `order_id` of the held position as the `tx_hash` value. Pass it as `{ "tx_hash": "<order_id>" }`.
+
+**Complete curl:**
+```bash
+curl -sS -X POST -H "x-api-key: $QUPILOT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "tx_hash": "<order_id>" }' \
+  "$QUPILOT_API_URL/agent/participations/<participation_uuid>/complete"
+```
 
 ---
 
@@ -141,9 +181,17 @@ Volume quests need composition. The skill should:
 1. Ask the user how to fulfill it — small market orders, a single bigger order, etc. Don't pick a strategy unilaterally; this affects risk.
 2. Run the chosen commands in sequence, summing notional from each JSON response's `data.notional_usd` (or equivalent).
 3. Stop as soon as the cumulative notional ≥ `min_volume_usd`.
-4. Collect every `order_id` / `tx_hash` along the way.
+4. Collect every `order_id` along the way.
 
-**Proof to send back:** an array of `order_id` (or `tx_hash`) values under `proof.order_ids` — the QuPilot backend sums their notional during verification.
+**Proof to send back:** Use the Hyperliquid `order_id` of the final (or most significant) trade as the `tx_hash` value. The backend stores this in the `tx_hash` field. Pass it as `{ "tx_hash": "<order_id>" }`.
+
+**Complete curl:**
+```bash
+curl -sS -X POST -H "x-api-key: $QUPILOT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "tx_hash": "<order_id>" }' \
+  "$QUPILOT_API_URL/agent/participations/<participation_uuid>/complete"
+```
 
 ---
 
@@ -151,6 +199,6 @@ Volume quests need composition. The skill should:
 
 Every byreal CLI returns `{ success: false, error: { code, message } }` on rejection. Treat rejection as a hard stop for that quest attempt:
 
-1. Call `POST /quests/{id}/abandon` to release the claim.
+1. Submit `complete` with the failed tx_hash anyway. The backend's `verifyTxBasic` will mark the participation as `failed` automatically. No explicit abandon needed.
 2. Report the byreal error message verbatim to the user.
 3. Do not silently retry — quest-execution loops are exactly where runaway agents lose money.

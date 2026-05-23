@@ -1,125 +1,177 @@
-# QuPilot Quest API — Proposed Shape
+# QuPilot Agent API — Reference
 
-This document is the contract between the `qupilot-quest-runner` skill and the QuPilot backend. The skill issues HTTP calls in this exact shape; the backend exposes endpoints matching this contract. Treat it as a living spec — when the backend evolves, update this file and the skill workflow together.
+This document is the source of truth for the `qupilot-quest-runner` skill. Every endpoint, request shape, and error code here reflects the actual backend implementation.
 
 ## Base URL & Auth
 
-- **Base URL**: read from env `QUPILOT_API_URL` (e.g. `https://api.qupilot.xyz/v1`). Default to `http://localhost:3000/v1` for local development.
-- **Auth header**: `Authorization: Bearer <QUPILOT_API_KEY>`. The key identifies the agent's user account.
-- Every response returns JSON with a top-level `{ success: boolean, data?: ..., error?: { code, message } }` envelope — mirroring the byreal CLI convention so a single parser handles all three surfaces.
+- **Base URL**: `QUPILOT_API_URL` env var. Default: `http://localhost:3000/v1` for local dev.
+- **Auth header**: `x-api-key: <QUPILOT_API_KEY>` — the agent's API key, generated from the user dashboard.
+- All responses use the envelope `{ success: boolean, data?: ..., error?: { code, message } }`.
 
-## Resource: Quest
+---
 
-A quest is an on-chain task a user (or their agent) can complete for a reward. The API never embeds private keys — execution always happens off the API, through the byreal CLIs, then the agent reports proof.
+## Response Envelope
 
 ```jsonc
-{
-  "id": "qst_01HXY...",            // opaque, stable
-  "title": "Swap $50 of SOL → USDC on Byreal",
-  "description": "Execute one swap of at least $50 notional...",
-  "status": "open",                 // open | claimed | submitted | verified | failed | expired
-  "venue": "byreal-clmm",           // byreal-clmm | byreal-perps
-  "action": {                       // structured target the agent must satisfy
-    "kind": "swap",                 // swap | open-position | close-position | provide-liquidity | hold-position | trade-volume
-    "params": {
-      "from_token": "SOL",
-      "to_token": "USDC",
-      "min_notional_usd": 50,
-      "max_slippage_bps": 50
-    }
-  },
-  "reward": { "amount": "5", "token": "QPT" },
-  "expires_at": "2026-05-29T00:00:00Z",
-  "verification": {
-    "mode": "tx-hash",              // tx-hash | order-id | onchain-watch
-    "required_fields": ["tx_hash"]  // what `POST /complete` must include
-  }
-}
+// Success
+{ "success": true, "data": { ... } }
+
+// Failure
+{ "success": false, "error": { "code": "QUEST_NOT_FOUND", "message": "Quest not found" } }
 ```
 
-### Action kinds the v1 skill knows how to dispatch
+---
 
-| `action.kind`        | Required params                                       | Maps to                          |
-|----------------------|-------------------------------------------------------|----------------------------------|
-| `swap`               | `from_token`, `to_token`, `min_notional_usd`, `max_slippage_bps` | `byreal-cli swap …`              |
-| `provide-liquidity`  | `pool_id`, `min_notional_usd`, `range_pct`            | `byreal-cli position open …`     |
-| `open-position`      | `coin`, `side`, `size`, `min_leverage`                | `byreal-perps-cli order market …`|
-| `close-position`     | `coin`                                                | `byreal-perps-cli position close-market …` |
-| `hold-position`      | `coin`, `min_duration_seconds`                        | observation only — `position list` polling |
-| `trade-volume`       | `min_volume_usd`, `venue`                             | composed loop of `order` / `swap` calls    |
+## Phase 1 — Browse Quests
 
-Unknown `action.kind` values must fail closed — the skill refuses to execute and surfaces the kind back to the user so the mapping can be extended.
+### `GET /quests` — list open quests (public, no auth required)
 
-## Endpoints
-
-### `GET /quests` — list quests
-
-Query params (all optional):
-- `status` — defaults to `open`. Pass `claimed,submitted` etc. for multi-status filters.
-- `venue` — `byreal-clmm` or `byreal-perps` to scope by surface.
-- `limit` — default 20, max 100.
+Query params:
+- `limit` — default 20, max 100
 
 Response:
 ```json
-{ "success": true, "data": { "quests": [ /* Quest, … */ ], "cursor": null } }
+{
+  "quests": [
+    {
+      "uuid": "...",
+      "title": "Swap $50 of SOL → USDC on Byreal",
+      "description": "...",
+      "protocol": "byreal",
+      "quest_type": "swap",
+      "action_params": { "from_token": "SOL", "to_token": "USDC", "min_notional_usd": 50, "max_slippage_bps": 50 },
+      "reward_per_user": "5000000",
+      "reward_token": "0x...",
+      "expires_at": "2026-06-01T00:00:00Z"
+    }
+  ]
+}
 ```
 
-### `GET /quests/{id}` — fetch one
+### `GET /quests/:uuid` — get one quest (public, no auth required)
 
-Used to refresh state before claiming or after dispatching.
+Same shape as a single item from the list above.
 
-### `POST /quests/{id}/claim` — reserve a quest for this agent
+---
 
-Body: `{}` (the API key identifies the claimer).
+## Phase 2 — Claim
 
-Response on success: the quest with `status: "claimed"` and a `claim_token` the agent must include in the completion submission. Claims expire after `expires_at` or after a server-side TTL (e.g. 1h), whichever is sooner.
+### `POST /agent/claim` — auto-claim the best available quest for this agent
 
-Failure cases worth surfacing to the user:
-- `QUEST_ALREADY_CLAIMED` — someone else (or another session of this user) has it.
-- `QUEST_EXPIRED` — past `expires_at`.
-- `QUEST_PRECONDITION_FAILED` — e.g. wallet doesn't hold the required balance.
+Body: none required.
 
-### `POST /quests/{id}/complete` — submit proof
-
-Body shape depends on `verification.mode`:
-
+Response:
 ```json
 {
-  "claim_token": "ctk_…",
-  "proof": {
-    "tx_hash": "5n3…",            // for mode = "tx-hash"
-    "order_id": "ord_…",          // for mode = "order-id"
-    "wallet": "9Wz…"              // for mode = "onchain-watch"
-  },
-  "agent_metadata": {
-    "cli": "byreal-cli@0.4.1",
-    "command": "swap --from SOL --to USDC --amount 0.5 -o json",
-    "executed_at": "2026-05-22T10:14:33Z"
+  "claimed": [
+    { "quest_uuid": "...", "participation_uuid": "...", "started_at": "2026-05-23T10:00:00Z" }
+  ]
+}
+```
+
+Save `participation_uuid` — you need it for complete.
+
+---
+
+## Phase 3 — Join (start a specific quest)
+
+### `POST /agent/participations` — start a specific quest by UUID
+
+Body:
+```json
+{ "quest_uuid": "<quest-uuid>" }
+```
+
+Response (`201`):
+```json
+{
+  "participation": {
+    "uuid": "<participation-uuid>",
+    "status": "inprogress",
+    "started_at": "2026-05-23T10:00:00Z"
   }
 }
 ```
 
-Response: the quest with updated `status`. Most often `submitted` (backend will verify async) — the skill should poll `GET /quests/{id}` until it reaches `verified` or `failed`, or hand off to the user with a "check back later" message if verification takes > 60s.
+Save `participation.uuid` — this is your `participation_uuid` for complete.
 
-### `POST /quests/{id}/abandon` — release a claim
+**Failure cases:**
+- `QUEST_NOT_FOUND` — quest UUID doesn't exist
+- `QUEST_EXPIRED` — past `expires_at`
+- `PARTICIPATION_INPROGRESS_EXISTS` (`409`) — you already have an in-progress participation for this quest
 
-Used if execution fails or the user decides not to proceed. Returns the quest to `open` so other agents can pick it up. No body required.
+---
 
-## Errors the skill must handle gracefully
+## Phase 4 — Execute & Complete
 
-| `error.code`                | Meaning & recovery                                                                 |
-|-----------------------------|------------------------------------------------------------------------------------|
-| `UNAUTHORIZED`              | `QUPILOT_API_KEY` missing or invalid. Stop, tell the user to set the env var.       |
-| `QUEST_NOT_FOUND`           | The ID is wrong or the quest was deleted. Refresh the list.                         |
-| `QUEST_ALREADY_CLAIMED`     | Don't retry. Pick a different quest or check if this agent already holds the claim. |
-| `QUEST_EXPIRED`             | Filter it out and move on.                                                          |
-| `QUEST_PRECONDITION_FAILED` | Show the precondition message to the user; do not silently work around it.         |
-| `VERIFICATION_PENDING`      | Not a hard error — poll again in 5–10s.                                             |
-| `VERIFICATION_FAILED`       | The proof didn't match the requirement. Surface the server's message verbatim.     |
+After executing on-chain via `byreal-cli` or `byreal-perps-cli`, submit proof.
 
-## Why this shape (notes for the backend team)
+### `POST /agent/participations/:uuid/complete` — submit tx proof
 
-1. **Structured `action` over freeform strings.** Keeping the action as `{kind, params}` instead of a plain description means the skill can deterministically pick a CLI command. Freeform titles can stay human-facing in `title` and `description`.
-2. **Claim/complete as separate steps.** A two-phase flow lets the backend reserve quests (prevent double-claim races) and gives the agent a stable `claim_token` to attach to the eventual on-chain proof.
-3. **Verification as a hint, not a rule.** `verification.mode` and `required_fields` tell the skill *what to send back*; the backend stays free to swap in stronger on-chain verification later without changing the skill's request shape.
-4. **Mirror the byreal envelope.** Identical `{success, data, error}` wrapping across QuPilot and both byreal CLIs means one JSON parser and one error-handling path everywhere.
+Params: `:uuid` = `participation_uuid` from join/claim response.
+
+Body:
+```json
+{ "tx_hash": "<on-chain-tx-hash>" }
+```
+
+The backend calls `verifyTxBasic(tx_hash, agent_wallet)` — checks:
+- Transaction exists and succeeded (status = 1)
+- `from` address matches the agent's wallet address on record
+
+Response:
+```json
+{
+  "participation": {
+    "uuid": "...",
+    "status": "success",
+    "completed_at": "2026-05-23T10:05:00Z"
+  }
+}
+```
+
+`status` will be either `"success"` or `"failed"` — verification is **synchronous**, not async. No need to poll.
+
+**Failure cases:**
+- `PARTICIPATION_NOT_FOUND` — participation UUID doesn't exist
+- `PARTICIPATION_NOT_INPROGRESS` (`409`) — already completed or failed
+- `FORBIDDEN` (`403`) — participation belongs to a different user
+- `REWARD_POOL_EXHAUSTED` (`409`) — quest reward pool is full, no more rewards
+
+---
+
+## Full Agent Flow (summary)
+
+```
+1. GET /quests                          → browse open quests
+2. POST /agent/participations           → join quest { quest_uuid }
+   → save participation.uuid
+3. [execute on-chain via byreal-cli]    → get tx_hash
+4. POST /agent/participations/:uuid/complete  → submit { tx_hash }
+   → status: success | failed
+```
+
+Or use `POST /agent/claim` instead of step 2 to auto-pick the best quest.
+
+---
+
+## Error Codes Reference
+
+| Code | HTTP | Meaning |
+|------|------|---------|
+| `QUEST_NOT_FOUND` | 404 | Quest UUID doesn't exist |
+| `QUEST_EXPIRED` | 400 | Quest is past its expiry date |
+| `PARTICIPATION_INPROGRESS_EXISTS` | 409 | Already have an active participation for this quest |
+| `PARTICIPATION_NOT_FOUND` | 404 | Participation UUID doesn't exist |
+| `PARTICIPATION_NOT_INPROGRESS` | 409 | Participation already completed or failed |
+| `FORBIDDEN` | 403 | Resource belongs to a different user |
+| `REWARD_POOL_EXHAUSTED` | 409 | Quest reward pool fully distributed |
+
+---
+
+## Notes
+
+- There is no `abandon` endpoint in v1. If execution fails, submit `complete` anyway — the backend will mark it `failed` if `verifyTxBasic` fails. No need to explicitly abandon.
+- Verification is synchronous — `complete` returns the final `success`/`failed` status immediately, no polling required.
+- `claim_token` does not exist — the SKILL.md reference to it is outdated. Use `participation_uuid` instead.
+- `agent_metadata` is not accepted by the backend — omit it from requests.
