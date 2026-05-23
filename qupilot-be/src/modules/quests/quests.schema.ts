@@ -18,7 +18,8 @@ export const createQuestBodySchema = z
     description: z.string().trim().min(1).max(5000),
     protocol: protocolSchema,
     quest_type: questTypeSchema,
-    action_params: z.record(z.string(), z.unknown()),
+    // Array of step objects — DB constraint (0011) enforces jsonb_typeof = 'array'.
+    action_params: z.array(z.record(z.string(), z.unknown())).min(1, 'action_params must contain at least one step'),
     total_reward_pool: bigintAmount,
     reward_per_user: bigintAmount,
     reward_token: z.string().trim().regex(/^0x[a-fA-F0-9]{40}$/, 'reward_token must be a 0x-prefixed ERC20 address'),

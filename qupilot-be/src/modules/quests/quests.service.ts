@@ -8,7 +8,7 @@ export type QuestPublic = {
   description: string;
   protocol: Protocol;
   quest_type: QuestType;
-  action_params: Record<string, unknown>;
+  action_params: Array<Record<string, unknown>>;
   total_reward_pool: number | string;
   reward_per_user: number | string;
   total_reward_distributed: number | string;
