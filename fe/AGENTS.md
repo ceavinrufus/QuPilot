@@ -21,7 +21,8 @@ app/
 ├── (user)/
 │   ├── explore/page.tsx            # User discovery feed (providers + quests)
 │   ├── profile/page.tsx            # My Achievements + Quest list + Leaderboard button
-│   ├── quests/[questId]/page.tsx  # User quest detail (copy quest ID, join button)
+│   ├── quests/page.tsx             # User quest list
+│   ├── quests/[questId]/page.tsx   # User quest detail (copy quest ID, join button)
 │   ├── leaderboard/page.tsx        # Ranked by reward + success rate
 │   └── layout.tsx                  # User layout (header: My Profile, Leaderboard, wallet)
 │
