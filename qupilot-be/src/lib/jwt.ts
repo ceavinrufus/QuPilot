@@ -4,7 +4,7 @@ import { env } from '../config/env';
 export type ProviderJwtPayload = {
   role: 'user_provider';
   sub: string;
-  username: string;
+  wallet_address: string;
 };
 
 export type UserJwtPayload = {
@@ -31,8 +31,12 @@ export const verifyJwt = (token: string): JwtPayload => {
     throw new jwt.JsonWebTokenError('Invalid token payload');
   }
   const payload = decoded as Record<string, unknown>;
-  if (payload.role === 'user_provider' && typeof payload.sub === 'string' && typeof payload.username === 'string') {
-    return { role: 'user_provider', sub: payload.sub, username: payload.username };
+  if (
+    payload.role === 'user_provider' &&
+    typeof payload.sub === 'string' &&
+    typeof payload.wallet_address === 'string'
+  ) {
+    return { role: 'user_provider', sub: payload.sub, wallet_address: payload.wallet_address };
   }
   if (payload.role === 'user' && typeof payload.sub === 'string' && typeof payload.wallet_address === 'string') {
     return { role: 'user', sub: payload.sub, wallet_address: payload.wallet_address };

@@ -34,20 +34,12 @@ Validation error (Zod):
 
 ## Auth
 
-### Provider (JWT)
+### Wallet JWT (role: user / user_provider)
 
 Header:
 
 ```
-Authorization: Bearer <provider_jwt>
-```
-
-### User (Wallet JWT)
-
-Header:
-
-```
-Authorization: Bearer <user_jwt>
+Authorization: Bearer <jwt>
 ```
 
 ### Agent (API Key)
@@ -68,59 +60,7 @@ Response:
 { "ok": true }
 ```
 
-## Auth — Provider
-
-### POST /auth/provider/register
-
-Body:
-
-```json
-{
-  "username": "byreal",
-  "password": "secret",
-  "display_name": "Byreal",
-  "logo_url": "https://..."
-}
-```
-
-201 Response:
-
-```json
-{
-  "provider": {
-    "uuid": "uuid",
-    "username": "byreal",
-    "display_name": "Byreal",
-    "logo_url": "https://...",
-    "created_at": "..."
-  }
-}
-```
-
-### POST /auth/provider/login
-
-Body:
-
-```json
-{ "username": "byreal", "password": "secret" }
-```
-
-200 Response:
-
-```json
-{
-  "token": "jwt",
-  "provider": {
-    "uuid": "uuid",
-    "username": "byreal",
-    "display_name": "Byreal",
-    "logo_url": "https://...",
-    "created_at": "..."
-  }
-}
-```
-
-## Auth — User (Wallet)
+## Auth — Wallet (User / Provider)
 
 ### POST /auth/user/login
 
@@ -130,16 +70,33 @@ Body:
 {
   "wallet_address": "SolanaPubkeyBase58",
   "signature": "Base58Signature",
-  "message": "string yang ditandatangani wallet"
+  "message": "string yang ditandatangani wallet",
+  "role": "user | user_provider (opsional)",
+  "display_name": "wajib kalau role=user_provider (opsional)",
+  "logo_url": "opsional"
 }
 ```
 
-200/201 Response:
+First-time login (wallet belum terdaftar) — 200 Response:
+
+```json
+{ "registered": false }
+```
+
+Registered login — 200/201 Response:
 
 ```json
 {
+  "registered": true,
   "token": "jwt",
-  "user": { "uuid": "uuid", "wallet_address": "SolanaPubkeyBase58", "created_at": "..." }
+  "user": {
+    "uuid": "uuid",
+    "wallet_address": "SolanaPubkeyBase58",
+    "role": "user | user_provider",
+    "display_name": "string | null",
+    "logo_url": "string | null",
+    "created_at": "..."
+  }
 }
 ```
 
@@ -154,7 +111,6 @@ Body:
   "providers": [
     {
       "uuid": "uuid",
-      "username": "byreal",
       "display_name": "Byreal",
       "logo_url": "https://...",
       "created_at": "...",
@@ -171,7 +127,7 @@ Quest type enum: `swap | lp | stake`
 
 ### POST /provider/quests
 
-Auth: Provider JWT
+Auth: Wallet JWT dengan role=user_provider
 
 Body:
 
@@ -573,12 +529,12 @@ Query:
 
 ## Contoh Curl Singkat
 
-Provider login:
+Wallet login:
 
 ```bash
-curl -sS '{API_URL}/auth/provider/login' \
+curl -sS '{API_URL}/auth/user/login' \
   -H 'content-type: application/json' \
-  -d '{"username":"byreal","password":"secret"}'
+  -d '{"wallet_address":"...","signature":"...","message":"..."}'
 ```
 
 User generate API key:
